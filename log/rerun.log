@@ -1,0 +1,22 @@
+
+Attesting: is normal
+[sm] sm_run_enclave return!
+[   40.329867] relay_page 1 000056ce
+[sm] into sm_enclave_ocall[3d]
+[   40.331477] PENGLAI MODULE: penglai_enclave_ocall: [3]
+[   40.333016] EAPP: Now start to call relay page ocall from enclave inside
+[sm] into sm_enclave_ocall[7d]
+[sm] into enclave_return_relay_page
+[sm] out enclave_return_relay_page
+[   40.346616] PENGLAI MODULE: penglai_enclave_ocall: [7]
+[   40.349090] where ami? into penglai_enclave_rerun
+[sm] trying to re[host] looping..sume.
+ from relay page
+[   40.363220] EAPP: ocall over
+[   40.364356] oh what? i yield!
+[   40.365165] oh what? im back!
+[sm] into sm_enclave_ocall[3d]
+[   40.366555] PENGLAI MODULE: penglai_enclave_ocall: [3]
+[   40.368178] relay_page 2 00000000
+host: PLenclave run is finish 
+host: after exit the thread

@@ -48,6 +48,13 @@ if [[ $1 == "qemu" ]]; then
 	exit 0
 fi
 
+if [[ $1 == "bash" ]]; then
+	echo "Run: run penglai demo image in sPMP-supported Qemu"
+	docker run -v $(pwd):/home/penglai/penglai-enclave -w /home/penglai/penglai-enclave --rm -it ddnirvana/penglai-enclave:v0.4 bash scripts/run-qemu.sh
+	exit 0
+fi
+
+
 # run penglai 
 if [[ $1 == "qemu32" ]]; then
 	echo "Run: run penglai32-nommu demo image in Qemu"

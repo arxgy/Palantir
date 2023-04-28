@@ -1,0 +1,5 @@
+{
+    "files.associations": {
+        "riscv_locks.h": "c"
+    }
+}

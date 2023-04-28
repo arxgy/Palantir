@@ -1,0 +1,15 @@
+[   27.139816] where ami? into ecall: SBI_SM_RUN_ENCLAVE
+[sm] sm_run_enclave return!
+[   27.174429] relay_page 1 000056ce
+[   27.175699] EAPP: Now start to call relay page ocall from enclave inside
+[sm] into sm_enclave_ocall[7d]
+[sm] into enclave_return_relay_page
+[sm] out enclave_return_relay_page
+[   27.192007] PENGLAI MODULE: penglai_enclave_ocall: [7]
+[host] looping...
+[   27.195378] where ami? into penglai_enclave_rerun
+[sm] trying to resume from relay page
+[   27.206262] EAPP: ocall over
+[   27.207221] relay_page 2 00000000
+host: PLenclave run is finish 
+host: after exit the thread
