@@ -1,0 +1,9 @@
+AC_ARG_WITH([target_platform], AS_HELP_STRING([--with-target-platform], [Set a specific platform for the sm to build with]),
+  [AC_SUBST([TARGET_PLATFORM], $with_target_platform, [Set a specific platform for the sm to build with])],
+  [AC_SUBST([TARGET_PLATFORM], default, [Set a specific platform for the sm to build with])])
+AS_IF([test "$TARGET_PLATFORM" == "default"], [
+  AC_DEFINE([pt_area_enabled],,[Define if the Penglai uses PT Area])
+],[
+  AC_DEFINE([${TARGET_PLATFORM}_enabled],,[Define if the Penglai uses other platform])
+])
+AC_DEFINE([SOFTWARE_PT_AREA],,[Define as we always use the SW PT AREA by default])

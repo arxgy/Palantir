@@ -1,0 +1,4 @@
+psahost
+*.dump
+*.o
+*.S

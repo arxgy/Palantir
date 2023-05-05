@@ -1,0 +1,10 @@
+tags
+*.o
+*.dump
+source.sh
+*.cmd
+*.swp
+*.a
+.vscode/*
+test
+test.ke
