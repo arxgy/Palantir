@@ -888,6 +888,7 @@ uintptr_t change_relay_page_ownership(unsigned long relay_page_addr, unsigned lo
  */
 int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 {
+  sbi_printf("\n[sm] swap_from_host_to_enclave\n\n");
   //grant encalve access to memory
   if(grant_enclave_access(enclave) < 0)
     return -1;
@@ -940,14 +941,22 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
  */
 int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
 {
+  sbi_printf("\n[sm] swap_from_enclave_to_host\n\n");
   //retrieve enclave access to memory
   retrieve_enclave_access(enclave);
 
   //restore host context
   swap_prev_state(&(enclave->thread_context), regs);
 
+  // uintptr_t prev_satp;
+  // prev_satp = csr_read(CSR_SATP);
+  // sbi_printf("[sm] prev satp: [%lu]\n", prev_satp);
+
   //restore host's ptbr
   switch_to_host_ptbr(&(enclave->thread_context), enclave->host_ptbr);
+
+  // prev_satp = csr_read(CSR_SATP);
+  // sbi_printf("[sm] curr satp: [%lu]\n", prev_satp);
 
   //restore host stvec
   swap_prev_stvec(&(enclave->thread_context), csr_read(CSR_STVEC));
@@ -963,7 +972,14 @@ int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
   swap_prev_medeleg(&(enclave->thread_context), csr_read(CSR_MEDELEG));
 
   //transfer control back to kernel
+  // uintptr_t prev_mepc;
+  // prev_mepc = csr_read(CSR_MEPC);
+  // sbi_printf("[sm] prev mepc: [%lu]\n", prev_mepc);
+
   swap_prev_mepc(&(enclave->thread_context), csr_read(CSR_MEPC));
+  
+  // prev_mepc = csr_read(CSR_MEPC);
+  // sbi_printf("[sm] curr mepc: [%lu]\n", prev_mepc);
 
   //restore mstatus
   uintptr_t mstatus = csr_read(CSR_MSTATUS);
@@ -1231,7 +1247,14 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
   }
 
   SET_ENCLAVE_METADATA(create_args.entry_point, enclave, &create_args, enclave_create_param_t *, paddr);
-  sbi_printf("The enclave's entrypoint: [%ld]", create_args.entry_point);
+  // sbi_printf("[sm] arg.base: [%lu]\n", create_args.base);
+  sbi_printf("[sm] enclave_mem.paddr [again]: [%lu]\n", create_args.paddr);
+  sbi_printf("[sm] root_page_table: [%lu]\n", enclave->root_page_table);
+  sbi_printf("[sm] host_ptbr: [%lu]\n", enclave->host_ptbr);
+  sbi_printf("[sm] encl_ptbr: [%lu]\n", enclave->thread_context.encl_ptbr);
+  sbi_printf("[sm] enclave.entrypoint: [%lu]\n", create_args.entry_point);
+  // sbi_printf("[sm] enclave.satp: [%lu]", enclave->thread_context.encl_ptbr);
+  
   //traverse vmas
   pma = (struct pm_area_struct*)(create_args.paddr);
   vma = (struct vm_area_struct*)(create_args.paddr + sizeof(struct pm_area_struct));
@@ -1488,9 +1511,11 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
 
   acquire_enclave_metadata_lock();
 
+  sbi_printf("[sm] run.finding enclave [%d]\n", eid);
   enclave = __get_enclave(eid);
 
   release_enclave_metadata_lock();
+  /* todo: extend our sanity check here. */
   if(!enclave || enclave->state != FRESH || enclave->type == SERVER_ENCLAVE)
   {
     sbi_bug("M mode: run_enclave: enclave%d can not be accessed!\n", eid);
@@ -1517,6 +1542,7 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
     goto run_enclave_out;
   }
 
+  sbi_printf("[sm] enclave.entry_point: [%ld]\n", (uintptr_t)(enclave->entry_point));
   //set return address to enclave
   csr_write(CSR_MEPC, (uintptr_t)(enclave->entry_point));
 

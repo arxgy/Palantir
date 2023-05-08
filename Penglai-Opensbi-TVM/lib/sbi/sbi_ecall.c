@@ -151,10 +151,12 @@ int enclave_call_trap(struct sbi_trap_regs* regs)
 	uintptr_t n = regs->a7;
 	csr_write(CSR_MEPC, regs->mepc + 4);
 	uintptr_t arg0 = regs->a0, arg1 = regs->a1, arg2 = regs->a2, arg3 = regs->a3;
+	sbi_printf("[sbi] case of OCALL trap: [%lu]\n", n);
 	switch (n)
 	{
 		case SBI_EXIT_ENCLAVE:
 			retval = sm_exit_enclave((uintptr_t*)regs, arg0);
+			sbi_printf("[sbi] out of SBI_EXIT_ENCLAVE\n");
 			break;
 		case SBI_ENCLAVE_OCALL:
 			// sbi_printf("[sbi] into SBI_ENCLAVE_OCALL\n");

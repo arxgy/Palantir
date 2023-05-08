@@ -1,5 +1,10 @@
 {
     "files.associations": {
-        "riscv_locks.h": "c"
+        "riscv_locks.h": "c",
+        "thread": "c",
+        "*.inc": "c",
+        "print.h": "c",
+        "types.h": "c",
+        "pthread.h": "c"
     }
 }

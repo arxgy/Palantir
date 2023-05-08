@@ -86,6 +86,7 @@ struct signature_t
   unsigned char s[PUBLIC_KEY_SIZE/2];
 };
 
+/* todo: host-level update */
 typedef enum
 {
   NORMAL_ENCLAVE = 0,

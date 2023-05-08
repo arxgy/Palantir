@@ -170,6 +170,8 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
   spin_lock(&enclave_create_lock);
 
   enclave = create_enclave(total_pages, enclave_param->name, enclave_param->type);
+  penglai_printf("[sdk driver] enclave_mem.paddr: [%lu]\n", enclave->enclave_mem->paddr);
+
   if(!enclave)
   {
     penglai_eprintf("cannot create enclave\n");
@@ -428,6 +430,7 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
         ret = -1;
         penglai_eprintf("penglai_enclave_run: rerun reason is error %d\n", enclave_param->rerun_reason);
     }
+    penglai_printf("[sdk driver] goto resume_for_rerun;\n");
     goto resume_for_rerun;
   }
   // First time to run enclave
@@ -475,8 +478,10 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
     enclave_run_sbi_param.mm_arg_size = schrodinger_size;
     printk("where ami? into ecall: SBI_SM_RUN_ENCLAVE\n");
     ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
+    printk("where ami? out of ecall: SBI_SM_RUN_ENCLAVE\n");
     while(ret == ENCLAVE_NO_MEM)
     {
+      printk("where ami? SBI_SM_RUN_ENCLAVE looping\n");
       if ((ret = penglai_extend_secure_memory()) < 0)
             return ret;
       ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
@@ -488,31 +493,35 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
 resume_for_rerun:
   while((ret == ENCLAVE_TIMER_IRQ) || (ret == ENCLAVE_OCALL) || (ret == ENCLAVE_RETURN_MONITOR_MODE))
   {
-    // printk("loop......\n");
+    printk("[sdk driver] [THE LOOP]\n");
     if (ret == ENCLAVE_TIMER_IRQ)
     {
       //FIXME: no we call yield every time there is a time interrupt
-      // printk("oh what? i yield!\n");
+      printk("[sdk driver] [ENCLAVE_TIMER_IRQ]\n");
       yield();
-      // printk("oh what? im back!\n");
+      printk("[sdk driver] [SBI_SM_RESUME_ENCLAVE]\n");
       ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
+      printk("[sdk driver] return from [SBI_SM_RESUME_ENCLAVE]\n");
     }
     else if(ret == ENCLAVE_RETURN_MONITOR_MODE)
     {
-      printk("where ami? into penglai_enclave_rerun\n");
+      printk("[sdk driver] [penglai_enclave_rerun]\n");
       ret = penglai_enclave_rerun(enclave_instance, enclave, resume_id, enclave_param->isShadow);  
+      printk("[sdk driver] return from [penglai_enclave_rerun]\n");
     }
     else{
-      // printk("where ami? into penglai_enclave_ocall\n");
+      printk("[sdk driver] [penglai_enclave_ocall]\n");
       ret = penglai_enclave_ocall(enclave_instance, enclave, resume_id, enclave_param->isShadow);  
+      printk("[sdk driver] return from [penglai_enclave_ocall]\n");
     }
   }
+  printk("[sdk driver] [OUT LOOP]\n");
 
   if (enclave_param->isShadow && enclave_instance)
     enclave_param->retval = enclave_instance->retval;
   else if (enclave)
     enclave_param->retval = enclave->retval;
-
+  printk("[sdk driver] enclave return with [%d]\n", ret);
   if(ret < 0)
   {
     penglai_eprintf("sbi call run enclave is failed \n");

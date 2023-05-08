@@ -897,7 +897,7 @@ uintptr_t sm_run_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t enclave_run_a
     return ENCLAVE_ERROR;
 
   retval = run_enclave(regs, (unsigned int)eid, enclave_sbi_param_local);
-  sbi_printf("[sm] sm_run_enclave return!\n");
+  sbi_printf("[sm] run_enclave return!\n");
   return retval;
 }
 
@@ -1066,7 +1066,7 @@ uintptr_t sm_exit_enclave(uintptr_t* regs, uintptr_t retval)
   uintptr_t ret = 0;
 
   ret = exit_enclave(regs, retval);
-
+  sbi_printf("[sm] out of exit_enclave\n");
   return ret;
 }
 

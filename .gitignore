@@ -10,3 +10,4 @@ copy-files/*
 !copy-files/dummy
 !copy-files/testAll.sh
 /source.sh
+*.dump

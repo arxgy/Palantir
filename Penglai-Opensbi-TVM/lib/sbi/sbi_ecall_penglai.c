@@ -44,6 +44,7 @@ static int sbi_ecall_penglai_handler(unsigned long extid, unsigned long funcid,
       break;
     case SBI_RUN_ENCLAVE:
       retval = sm_run_enclave(args, arg0, arg1);
+      sbi_printf("[sm] sm_run_enclave return!\n");
       break;
     case SBI_STOP_ENCLAVE:
       retval = sm_stop_enclave(args, arg0);

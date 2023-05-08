@@ -60,6 +60,7 @@ int handle_ocall_sys_write(enclave_instance_t *enclave_instance, enclave_t *encl
     printk((void*)(enclave->kbuffer));
   }
   ret = SBI_PENGLAI_3(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_SYS_WRITE);
+  printk("[sdk driver] I'm back!\n");
   return ret;
 }
 
