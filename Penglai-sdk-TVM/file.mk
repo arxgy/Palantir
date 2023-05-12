@@ -3,6 +3,8 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/host/host \
 	$(srcdir)/Penglai-sdk-TVM/demo/fork-host/fork-host \
 	$(srcdir)/Penglai-sdk-TVM/demo/hello-world/hello-world \
+	$(srcdir)/Penglai-sdk-TVM/demo/ne-hello/ne-hello \
+	$(srcdir)/Penglai-sdk-TVM/demo/pe-hello/pe-hello \
 	$(srcdir)/Penglai-sdk-TVM/demo/relay-page/relay-page \
 	$(srcdir)/Penglai-sdk-TVM/demo/mem/mem \
 	$(srcdir)/Penglai-sdk-TVM/demo/IPC/caller/caller \

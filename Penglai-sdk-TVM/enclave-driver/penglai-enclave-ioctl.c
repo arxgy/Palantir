@@ -5,6 +5,14 @@
 #include "penglai-enclave-persistency.h"
 #include "penglai-enclave-ocall.h"
 #include <linux/delay.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+#include <linux/err.h>
+#include <linux/stat.h>
+#include <linux/types.h>
+#include <asm/uaccess.h>
 
 //TODO: improve concurrency
 //now we just acqure a big clock before allocating enclave mem, and release the lock
@@ -21,8 +29,9 @@ unsigned int total_enclave_page(int elf_size, int stack_size)
 int create_sbi_param(enclave_t* enclave, struct penglai_enclave_sbi_param * enclave_sbi_param,
     unsigned long paddr, unsigned long size, unsigned long entry_point,
     unsigned long free_mem,
-    unsigned long shm_vaddr, unsigned long shm_size)
+    unsigned long shm_vaddr, unsigned long shm_size, unsigned long caller_eid)
 { 
+  enclave_sbi_param->create_caller_eid = caller_eid;
   enclave_sbi_param->eid_ptr = (unsigned int* )__pa(&enclave->eid);
   enclave_sbi_param->ecall_arg0 = (unsigned long* )__pa(&enclave->ocall_func_id);
   enclave_sbi_param->ecall_arg1 = (unsigned long* )__pa(&enclave->ocall_arg0);
@@ -39,7 +48,7 @@ int create_sbi_param(enclave_t* enclave, struct penglai_enclave_sbi_param * encl
   enclave_sbi_param->kbuffer_size = enclave->kbuffer_size;
 
   //enclave share mem with host
-  if((enclave->type == NORMAL_ENCLAVE || enclave->type == SERVER_ENCLAVE)&& shm_vaddr && shm_size)
+  if((enclave->type == NORMAL_ENCLAVE || enclave->type == SERVER_ENCLAVE || enclave->type == PRIVIL_ENCLAVE) && shm_vaddr && shm_size)
   {
     enclave_sbi_param->shm_paddr = __pa(shm_vaddr);
     enclave_sbi_param->shm_size = shm_size;
@@ -148,42 +157,143 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
 {
   struct penglai_enclave_user_param* enclave_param = (struct penglai_enclave_user_param*)args;
   struct penglai_enclave_sbi_param enclave_sbi_param;
-  enclave_t* enclave;
+  enclave_t* enclave = NULL;
   void *elf_ptr = (void*)enclave_param->elf_ptr;
+  void *elf_file_buf = NULL;
+  char *elf_file_name = NULL;
   int ret, total_pages, elf_size = 0, stack_size = enclave_param->stack_size;
   unsigned long free_mem = 0, elf_entry = 0, shm_vaddr = 0, shm_size = 0, order = 0;
-  //FIXME: remove elf_size in enclave_param 
-  penglai_enclave_elfmemsize(elf_ptr,  &elf_size);
+  loff_t pos = 0, elf_file_size = 0;
 
-  // SHADOW ENCLAVE does not need to assign the stack memory
-  if(enclave_param->type == SHADOW_ENCLAVE)
-    stack_size = 0;
 
-  order = ilog2(total_enclave_page(elf_size, stack_size)- 1) + 1;
-  total_pages = 0x1 << order;
-  penglai_printf("total_pages: [%ld]\n", total_pages);
-  if(check_eapp_memory_size(elf_size, stack_size) < 0)
+  if (filep != NULL) 
   {
-    penglai_eprintf("eapp memory is out of bound \n");
-    return -1;
+    penglai_printf("[sdk driver] enter penglai_enclave_create WITHOUT wrapper\n");
+    /* NULL_EID means default launcher: OS. */
+    enclave_param->eid = NULL_EID;
+    //FIXME: remove elf_size in enclave_param 
+    penglai_enclave_elfmemsize(elf_ptr,  &elf_size);
+    
+    // SHADOW ENCLAVE does not need to assign the stack memory
+    if(enclave_param->type == SHADOW_ENCLAVE)
+      stack_size = 0;
+
+    order = ilog2(total_enclave_page(elf_size, stack_size)- 1) + 1;
+    total_pages = 0x1 << order;
+    penglai_printf("total_pages: [%ld]\n", total_pages);
+    if(check_eapp_memory_size(elf_size, stack_size) < 0)
+    {
+      penglai_eprintf("eapp memory is out of bound \n");
+      return -1;
+    }
+    spin_lock(&enclave_create_lock);
+
+    enclave = create_enclave(total_pages, enclave_param->name, enclave_param->type);
+    penglai_printf("[sdk driver] enclave_mem.paddr: [%lu]\n", enclave->enclave_mem->paddr);
+
+    if(!enclave)
+    {
+      penglai_eprintf("cannot create enclave\n");
+      goto destroy_enclave;
+    }
+
+    if(penglai_enclave_eapp_loading(enclave->enclave_mem, elf_ptr, elf_size, 
+          &elf_entry, STACK_POINT, stack_size, enclave->type))
+    {
+      penglai_eprintf("penglai_enclave_eapp_loading is failed\n");;
+      goto destroy_enclave;
+    }
   }
-  spin_lock(&enclave_create_lock);
-
-  enclave = create_enclave(total_pages, enclave_param->name, enclave_param->type);
-  penglai_printf("[sdk driver] enclave_mem.paddr: [%lu]\n", enclave->enclave_mem->paddr);
-
-  if(!enclave)
+  else 
   {
-    penglai_eprintf("cannot create enclave\n");
-    goto destroy_enclave;
-  }
+    /**
+      *  we support a kernel version of penglai enclave memory setup,
+      *  which use memcpy directly instead of copy_from_user.
+      *  This is because we allocate elffile by kmalloc for privileged create.
+      * 
+      * by Ganxiang Yang @ May 11, 2023. 
+    */
+    penglai_printf("[sdk driver] enter penglai_enclave_create WITH wrapper\n");
 
-  if(penglai_enclave_eapp_loading(enclave->enclave_mem, elf_ptr, elf_size, 
+    elf_file_name = (char *)kmalloc(ELF_FILE_LEN, GFP_KERNEL);
+    if (!elf_file_name)
+    {
+      penglai_eprintf("[sdk driver] kmalloc [elf_file_name] failed\n");
+      return -1;
+    }
+    memcpy(elf_file_name, enclave_param->elf_file_name, ELF_FILE_LEN);
+    penglai_printf("[sdk driver] elf_file_name:[%s]\n", elf_file_name);
+
+    struct file *elf_file = filp_open(elf_file_name, O_RDONLY, 0);
+    if (IS_ERR(elf_file))
+    {
+      penglai_eprintf("[sdk driver] filp_open operation failed\n");
+      goto free_variable;
+    }
+    
+    elf_file_size = i_size_read(file_inode(elf_file));
+    elf_file_buf = kmalloc(elf_file_size, GFP_KERNEL);
+    if (!elf_file_buf)
+    {
+      penglai_eprintf("[sdk driver] kmalloc [elf_ptr] failed\n");
+      goto free_variable;
+    }
+    ret = kernel_read(elf_file, elf_file_buf, elf_file_size, &pos);
+
+    if (ret != elf_file_size)
+    {
+      penglai_eprintf("[sdk driver] kernel_read size is mismatched with elf_file [%.*s] size\n",
+                      ELF_FILE_LEN, elf_file_name);
+      goto free_variable;
+    }
+    /* content check */
+    unsigned long sum = 0;
+    int iter = 0;
+    for (iter = 0; iter < elf_file_size; iter++)
+      sum = sum+ (int)((char *)elf_file_buf)[iter];
+    penglai_printf("launched enclave sum: [%lu]\n", sum);
+    /* content check end */
+    
+    //FIXME: remove elf_size in enclave_param 
+    privil_enclave_elfmemsize(elf_file_buf, &elf_size);
+    penglai_printf("elf_size: [%d]\n", elf_size);
+
+    // SHADOW ENCLAVE does not need to assign the stack memory
+    if(enclave_param->type == SHADOW_ENCLAVE)
+      stack_size = 0;
+    order = ilog2(total_enclave_page(elf_size, stack_size)- 1) + 1;
+    total_pages = 0x1 << order;
+    penglai_printf("total_pages: [%ld]\n", total_pages);
+    if(check_eapp_memory_size(elf_size, stack_size) < 0)
+    {
+      penglai_eprintf("eapp memory is out of bound \n");
+      goto free_variable;
+    }
+    spin_lock(&enclave_create_lock);
+    enclave = create_enclave(total_pages, enclave_param->name, enclave_param->type);
+    penglai_printf("[sdk driver] enclave_mem.paddr: [%lu]\n", enclave->enclave_mem->paddr);
+    if(!enclave)
+    {
+      penglai_eprintf("cannot create enclave\n");
+      goto destroy_enclave;
+    }
+    if (privil_enclave_eapp_loading(enclave->enclave_mem, elf_file_buf, elf_size, 
         &elf_entry, STACK_POINT, stack_size, enclave->type))
-  {
-    penglai_eprintf("penglai_enclave_eapp_loading is failed\n");;
-    goto destroy_enclave;
+    {
+      penglai_eprintf("privil_enclave_eapp_loading is failed\n");;
+      goto destroy_enclave;
+    }
+    // penglai_printf("parent eid: [%d]\n", enclave_param->eid);
+    
+    // spin_unlock(&enclave_create_lock);
+    // /* stop it for now */
+    // kfree(elf_file_name);
+    // kfree(elf_file_buf);
+    // penglai_printf("NOW we return\n");
+    // return 0;
   }
+
+  /* shared by privil/normal create */
 
   if(elf_entry == 0)
   {
@@ -198,7 +308,7 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
   create_sbi_param(enclave, &enclave_sbi_param,
       (unsigned long)(enclave->enclave_mem->paddr),
       enclave->enclave_mem->size, elf_entry, __pa(free_mem),
-      shm_vaddr, shm_size);
+      shm_vaddr, shm_size, enclave_param->eid);
 
   if(enclave_sbi_param.type == SERVER_ENCLAVE)
     ret = SBI_PENGLAI_1(SBI_SM_CREATE_SERVER_ENCLAVE, __pa(&enclave_sbi_param));
@@ -225,18 +335,33 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
     goto destroy_enclave;
   }
   enclave_param->eid = enclave_idr_alloc(enclave);
-
+  penglai_printf("[sdk driver] enclave_idr_alloc: [%lu]\n", enclave_param->eid); 
   spin_unlock(&enclave_create_lock);
+  if (elf_file_name)
+    kfree(elf_file_name);
+  if (elf_file_buf)
+    kfree(elf_file_buf);
+  
   return ret;
 
 destroy_enclave:
 
   spin_unlock(&enclave_create_lock);
 
+free_variable:
   if(enclave)
     destroy_enclave(enclave);
-
+  if (elf_file_name)
+    kfree(elf_file_name);
+  if (elf_file_buf)
+    kfree(elf_file_buf);
   return -EFAULT;
+}
+
+/* a level of wrapper function */
+int penglai_enclave_ocall_create(unsigned long args)
+{
+  return penglai_enclave_create(NULL, args);
 }
 
 int penglai_enclave_destroy(struct file * filep, unsigned long args)
@@ -436,6 +561,7 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
   // First time to run enclave
   else
   {
+    /* eid: idr allocated */
     enclave = get_enclave_by_id(eid);
     if(!enclave)
     {
@@ -476,12 +602,9 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
       schrodinger_paddr = DEFAULT_MAGIC_NUMBER; //magic number
     enclave_run_sbi_param.mm_arg_addr = schrodinger_paddr;
     enclave_run_sbi_param.mm_arg_size = schrodinger_size;
-    printk("where ami? into ecall: SBI_SM_RUN_ENCLAVE\n");
     ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
-    printk("where ami? out of ecall: SBI_SM_RUN_ENCLAVE\n");
     while(ret == ENCLAVE_NO_MEM)
     {
-      printk("where ami? SBI_SM_RUN_ENCLAVE looping\n");
       if ((ret = penglai_extend_secure_memory()) < 0)
             return ret;
       ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
@@ -493,15 +616,11 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
 resume_for_rerun:
   while((ret == ENCLAVE_TIMER_IRQ) || (ret == ENCLAVE_OCALL) || (ret == ENCLAVE_RETURN_MONITOR_MODE))
   {
-    printk("[sdk driver] [THE LOOP]\n");
     if (ret == ENCLAVE_TIMER_IRQ)
     {
       //FIXME: no we call yield every time there is a time interrupt
-      printk("[sdk driver] [ENCLAVE_TIMER_IRQ]\n");
       yield();
-      printk("[sdk driver] [SBI_SM_RESUME_ENCLAVE]\n");
       ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
-      printk("[sdk driver] return from [SBI_SM_RESUME_ENCLAVE]\n");
     }
     else if(ret == ENCLAVE_RETURN_MONITOR_MODE)
     {
@@ -533,7 +652,6 @@ resume_for_rerun:
   }
 
   free_enclave:
-    printk("where ami? into free_enclave inside driver\n");
     if(enclave_param->isShadow == 1)
     {
       if (!enclave_instance || !(enclave_instance->addr) || !(enclave_instance->kbuffer))

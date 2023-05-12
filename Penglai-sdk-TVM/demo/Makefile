@@ -9,6 +9,8 @@ all:
 	make -C test-stop
 	make -C psa
 	make -C seperated_filesystem_simple
+	make -C ne-hello
+	make -C pe-hello
 
 	#CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  mphost_normal
 
@@ -23,4 +25,6 @@ clean:
 	make -C test-stop clean
 	make -C psa clean
 	make -C seperated_filesystem_simple clean
+	make -C ne-hello clean
+	make -C pe-hello clean
 

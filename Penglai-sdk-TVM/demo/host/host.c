@@ -45,6 +45,8 @@ void* create_enclave(void* args0)
   char str_num[15];
   sprintf(str_num, "test-enclave%d", i);
   strcpy(params->name, str_num);
+  /* Try to launch a PE. */
+  params->type = PRIVIL_ENCLAVE;
   
   if(PLenclave_create(enclave, enclaveFile, params) < 0)
   {

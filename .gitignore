@@ -11,3 +11,5 @@ copy-files/*
 !copy-files/testAll.sh
 /source.sh
 *.dump
+.history/*
+.history

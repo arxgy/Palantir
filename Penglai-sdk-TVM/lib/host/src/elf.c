@@ -31,6 +31,17 @@ void elf_args_init(struct elf_args* elf_args, char *filename)
     fprintf(stderr, "LIB: can not mmap enough memory for elf file");
     return;
   }
+  unsigned long sum = 0;
+  int iter = 0;
+  for (iter = 0; iter < elf_args->size; iter++)
+  {
+    sum = sum+ (int) (((char *)elf_args->ptr)[iter]);
+  }
+  printf("launched enclave sum: [%lu]\n", sum);
+  // int buf_size = elf_args->size;
+
+  // printf("launched enclave:---------\n\n %.*s \n---------\n",  
+  //         buf_size, (char *)(elf_args->ptr));
 
   return;
 }

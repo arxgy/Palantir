@@ -73,11 +73,15 @@ struct penglai_enclave_user_param
   unsigned long schrodinger_offset;
   unsigned long schrodinger_size;
   unsigned long retval;
+  char elf_file_name[ELF_FILE_LEN];
 };
 
 struct penglai_enclave_sbi_param
 {
   unsigned int * eid_ptr;
+  /* launcher's slab eid, -1 as OS */
+  unsigned long create_caller_eid;
+
   char name[NAME_LEN];
   enclave_type_t type;
 
@@ -176,5 +180,8 @@ struct penglai_enclave_attest_param
 };
 
 long penglai_enclave_ioctl(struct file* filep, unsigned int cmd, unsigned long args);
+
+int penglai_enclave_ocall_create(unsigned long args);
+
 
 #endif

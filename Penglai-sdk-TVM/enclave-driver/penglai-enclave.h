@@ -10,6 +10,10 @@
 #define STACK_POINT 0x0000003800000000UL
 #define PENGLAI_ENCLAVE_IOC_MAGIC  0xa4
 
+/* Restriction on PE's NE file length*/
+#define ELF_FILE_LEN       256
+/* let 0xffffffffffffffffUL be NULL slab eid */
+#define NULL_EID           -1
 extern long SBI_PENGLAI_ECALL_0(int fid);
 extern long SBI_PENGLAI_ECALL_1(int fid, unsigned long arg0);
 extern long SBI_PENGLAI_ECALL_2(int fid, unsigned long arg0, unsigned long arg1);
@@ -70,6 +74,14 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define OCALL_WRITE_SECT                  6
 #define OCALL_RETURN_RELAY_PAGE           7
 
+/* add host-level selector support */
+#define OCALL_CREATE_ENCLAVE		 16
+#define OCALL_ATTEST_ENCLAVE		 17
+#define OCALL_RUN_ENCLAVE		 	   18
+#define OCALL_STOP_ENCLAVE		 	 19
+#define OCALL_RESUME_ENCLAVE		 20
+#define OCALL_DESTROY_ENCLAVE		 21
+
 #define RESUME_FROM_TIMER_IRQ             0
 #define RESUME_FROM_STOP                  1
 #define RESUME_FROM_OCALL                 2
@@ -101,7 +113,8 @@ typedef enum
 {
   NORMAL_ENCLAVE = 0,
   SERVER_ENCLAVE = 1,
-  SHADOW_ENCLAVE
+  SHADOW_ENCLAVE = 2, 
+  PRIVIL_ENCLAVE = 3
 } enclave_type_t;
 #endif
 
@@ -145,6 +158,27 @@ typedef struct require_sec_memory
   unsigned long paddr;
   unsigned long resp_size;
 } require_sec_memory_t;
+
+/* This param should be sync with the struct in PE's hdr file.*/
+typedef struct ocall_create_param
+{
+  /* enclave */
+  unsigned int eid;
+  
+  /* enclaveFile */
+  unsigned long elf_file_size;
+  unsigned long elf_file_ptr; // VA from enclave
+  /* params */
+  char encl_name [NAME_LEN];
+  enclave_type_t encl_type;
+  unsigned long stack_size;
+  int shmid;
+  unsigned long shm_offset;
+  unsigned long shm_size;
+  char elf_file_name [ELF_FILE_LEN];
+
+
+} ocall_create_param_t;
 
 enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type);
 int destroy_enclave(enclave_t* enclave);

@@ -21,6 +21,8 @@
 #define ENCLAVE_MODE 1
 #define NORMAL_MODE 0
 
+#define CHILDREN_METADATA_REGION_SIZE  ((sizeof(struct children_enclave_t)) * ENCLAVES_PER_METADATA_REGION)
+
 //FIXME: need to determine the suitable threshold depending on the performance.
 #define ENCLAVE_SELF_HASH_THRESHOLD  (RISCV_PGSIZE)
 
@@ -41,6 +43,33 @@
   enclave->host_ptbr = csr_read(CSR_SATP); \
   enclave->root_page_table = ((struct_type)create_args)->base + RISCV_PGSIZE; \
   enclave->thread_context.encl_ptbr = ((((struct_type)create_args)->base+RISCV_PGSIZE) >> RISCV_PGSHIFT) | SATP_MODE_CHOICE; \
+  enclave->type = ((struct_type)create_args)->type; \
+  enclave->state = FRESH; \
+  enclave->caller_eid = -1; \
+  enclave->top_caller_eid = -1; \
+  enclave->cur_callee_eid = -1; \
+  enclave->ocalling_shm_key = 0; \
+  sbi_memcpy(enclave->enclave_name, ((struct_type)create_args)->name, NAME_LEN); \
+  enclave->parent_eid = ((struct_type)create_args)->create_caller_eid; \
+  enclave->children_metadata_head = NULL; \
+  enclave->children_metadata_tail = NULL; \
+} while(0)
+
+
+#define SET_SHADOW_ENCLAVE_METADATA(point, enclave, create_args, struct_type, base) do { \
+  enclave->entry_point = point; \
+  enclave->ocall_func_id = ((struct_type)create_args)->ecall_arg0; \
+  enclave->ocall_arg0 = ((struct_type)create_args)->ecall_arg1; \
+  enclave->ocall_arg1 = ((struct_type)create_args)->ecall_arg2; \
+  enclave->ocall_syscall_num = ((struct_type)create_args)->ecall_arg3; \
+  enclave->retval = ((struct_type)create_args)->retval; \
+  enclave->kbuffer = ((struct_type)create_args)->kbuffer; \
+  enclave->kbuffer_size = ((struct_type)create_args)->kbuffer_size; \
+  enclave->shm_paddr = ((struct_type)create_args)->shm_paddr; \
+  enclave->shm_size = ((struct_type)create_args)->shm_size; \
+  enclave->host_ptbr = csr_read(CSR_SATP); \
+  enclave->root_page_table = ((struct_type)create_args)->base + RISCV_PGSIZE; \
+  enclave->thread_context.encl_ptbr = ((((struct_type)create_args)->base+RISCV_PGSIZE) >> RISCV_PGSHIFT) | SATP_MODE_CHOICE; \
   enclave->type = NORMAL_ENCLAVE; \
   enclave->state = FRESH; \
   enclave->caller_eid = -1; \
@@ -48,6 +77,9 @@
   enclave->cur_callee_eid = -1; \
   enclave->ocalling_shm_key = 0; \
   sbi_memcpy(enclave->enclave_name, ((struct_type)create_args)->name, NAME_LEN); \
+  enclave->parent_eid = ((struct_type)create_args)->create_caller_eid; \
+  enclave->children_metadata_head = NULL; \
+  enclave->children_metadata_tail = NULL; \
 } while(0)
 
 struct link_mem_t
@@ -159,7 +191,24 @@ struct enclave_t
   unsigned int cur_callee_eid;
   unsigned char hash[HASH_SIZE];
   char enclave_name[NAME_LEN];
+  // TODO: add our metadata here.
+  unsigned long parent_eid;
+  struct link_mem_t *children_metadata_head;
+  struct link_mem_t *children_metadata_tail;
 };
+
+/* 
+  entry for children enclave's messages 
+  now only support eid for indexing & state for slab 
+    provided by Ganxiang Yang @ May 10, 2023.
+*/
+struct children_enclave_t
+{
+  /* we only use VALID & FRESH */
+  enclave_state_t state;
+  unsigned int eid;
+};
+
 
 struct shadow_enclave_t
 {
@@ -269,6 +318,16 @@ uintptr_t enclave_shmdetach(uintptr_t* regs, uintptr_t key);
 uintptr_t enclave_shmdestroy(uintptr_t* regs, uintptr_t key);
 uintptr_t sm_shm_stat(uintptr_t* regs, uintptr_t key, uintptr_t shm_desp_user);
 
+/**
+ * Ocall transition functions
+*/
+uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args);
+uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t report_ptr, uintptr_t nonce);
+uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t enclave_run_param);
+uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
+uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t eid);
+uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
+
 // IPI
 uintptr_t ipi_stop_enclave(uintptr_t *regs, uintptr_t host_ptbr, int eid);
 uintptr_t ipi_destroy_enclave(uintptr_t *regs, uintptr_t host_ptbr, int eid);
@@ -304,5 +363,25 @@ static inline unsigned long rdcycle(void)
   	asm volatile ("rdcycle %0" : "=r"(ret));
     return ret;
 }
+/* sm-level OCall param */
+typedef struct ocall_create_param
+{
+  /* allocated enclave */
+  /* inner layer eid */
+  unsigned int eid;
+  
+  /* enclaveFile */
+  unsigned long elf_file_size;
+  unsigned long elf_file_ptr; // VA from enclave
+  /* params */
+  char encl_name [NAME_LEN];
+  enclave_type_t encl_type;
+  unsigned long stack_size;
+  int shmid;
+  unsigned long shm_offset;
+  unsigned long shm_size;
+  char elf_file_name [ELF_FILE_LEN];
+
+} ocall_create_param_t;
 
 #endif /* _ENCLAVE_H */

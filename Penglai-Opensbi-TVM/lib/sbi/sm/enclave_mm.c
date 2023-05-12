@@ -4,6 +4,7 @@
 #include "sm/enclave_mm.h"
 #include "sbi/riscv_atomic.h"
 #include "sbi/sbi_math.h"
+#include "sbi/sbi_console.h"
 
 // mm_region_list maintains the (free?) secure pages in monitor
 static struct mm_region_list_t *mm_region_list;
@@ -128,17 +129,44 @@ out:
 void* mm_alloc(unsigned long req_size, unsigned long *resp_size)
 {
   void* ret = NULL;
+  sbi_printf("[sm] entering mm_alloc\n");
   spin_lock(&mm_regions_lock);
-
+  struct mm_region_list_t *cur;
   if(!mm_region_list)
   {
+    sbi_printf("[sm] mm_region_list is NULL\n");
     ret = NULL;
     goto out;
+  }
+  cur = mm_region_list;
+  sbi_printf("[sm] before this [mm_alloc], mm_region_list[0x%p]\n", mm_region_list);
+  for (cur = mm_region_list; cur != NULL; cur = cur->next)
+  {
+    sbi_printf("==>: pointer [0x%p]\n", cur);
   }
 
   ret = (void*)(mm_region_list->paddr);
   *resp_size = mm_region_list->size;
+  if (mm_region_list->next == NULL)
+  {
+    sbi_printf("[sm] current mm_region_list's next is NULL!\n");
+  }
   mm_region_list = mm_region_list->next;
+
+  if (mm_region_list != NULL)
+  {
+    sbi_printf("[sm] after this [mm_alloc], mm_region_list[0x%p]\n", mm_region_list);
+    struct mm_region_list_t *cur = mm_region_list;
+    for (cur = mm_region_list; cur != NULL; cur = cur->next)
+    {
+      sbi_printf("==>: pointer [0x%p]\n", cur);
+    }
+  }  
+  else 
+  {
+    sbi_printf("[sm] after this [mm_alloc], mm_region_list[0xNULL]\n");
+  }
+
 
 out:
   spin_unlock(&mm_regions_lock);

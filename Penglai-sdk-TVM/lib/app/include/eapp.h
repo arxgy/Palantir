@@ -58,6 +58,13 @@ unsigned long EAPP_CALL_ENCLAVE(unsigned long handle, struct call_enclave_arg_t 
 int EAPP_YIELD();
 int EAPP_GET_REPORT(char * name, struct report_t *report, unsigned long nonce);
 int EAPP_GET_KEY(int ket_type, char *key, int key_size);
+/* add Ecalls here. */
+int EAPP_CREATE_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_ATTEST_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_RUN_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_STOP_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_RESUME_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 
 void* eapp_mmap(void* vaddr, unsigned long size);
 int eapp_unmap(void* vaddr, unsigned long size);
@@ -76,6 +83,13 @@ unsigned long asyn_enclave_call(char* name, struct call_enclave_arg_t *arg);
 
 int eapp_persistency_read_sec(unsigned long sec);
 int eapp_persistency_write_sec(unsigned long sec);
+/* add app-level support */
+int eapp_create_enclave(unsigned long ocall_param_vaddr);
+int eapp_attest_enclave(unsigned long ocall_param_vaddr);
+int eapp_run_enclave(unsigned long ocall_param_vaddr);
+int eapp_stop_enclave(unsigned long ocall_param_vaddr);
+int eapp_resume_enclave(unsigned long ocall_param_vaddr);
+int eapp_destroy_enclave(unsigned long ocall_param_vaddr);
 
 #define ROUNDUP(size, align) (((size-1)/align+1)*align)
 #define RISCV_PAGE_SIZE 4096

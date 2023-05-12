@@ -207,10 +207,14 @@ struct link_mem_t* init_mem_link(unsigned long mem_size, unsigned long slab_size
 {
   struct link_mem_t* head;
   unsigned long resp_size = 0;
+  sbi_printf("[sm] start mm_alloc\n");
   head = (struct link_mem_t*)mm_alloc(mem_size, &resp_size);
-  
-  if(head == NULL)
+  sbi_printf("[sm] requested size: [%lu]; given size: [%lu]\n", mem_size, resp_size);
+
+  if(head == NULL) {
+    sbi_printf("[sm] mm_alloc return with NULL\n");
     return NULL;
+  }
   else
     sbi_memset((void*)head, 0, resp_size);
 
@@ -243,8 +247,10 @@ struct link_mem_t* add_link_mem(struct link_mem_t** tail)
 
   new_link_mem = (struct link_mem_t*)mm_alloc((*tail)->mem_size, &resp_size);
 
-  if (new_link_mem == NULL)
+  if (new_link_mem == NULL) {
+    sbi_printf("[sm] oh, mm_alloc failed!\n");
     return NULL;
+  }
   else
     sbi_memset((void*)new_link_mem, 0, resp_size);
 
@@ -321,6 +327,12 @@ struct enclave_t* __alloc_enclave()
     enclave_metadata_tail = enclave_metadata_head;
   }
 
+  sbi_printf("__alloc_enclave: head[0x%p]; tail[0x%p]\n", enclave_metadata_head, enclave_metadata_tail);
+  for(cur = enclave_metadata_head; cur != NULL; cur = cur->next_link_mem)
+  {
+    sbi_printf("==>: pointer [0x%p]\n", cur);
+  }
+
   for(cur = enclave_metadata_head; cur != NULL; cur = cur->next_link_mem)
   {
     for(i = 0; i < (cur->slab_num); i++)
@@ -343,6 +355,7 @@ struct enclave_t* __alloc_enclave()
   //don't have enough enclave metadata
   if(!found)
   {
+    sbi_printf("[sm] we don't have enough enclave metadata\n");
     next = add_link_mem(&enclave_metadata_tail);
     if(next == NULL)
     {
@@ -609,6 +622,163 @@ struct enclave_t* __get_real_enclave(int eid)
   return real_enclave;
 }
 
+/********************************************/
+/*            Enclave Ownership             */
+/********************************************/
+/*
+  provided by Ganxiang Yang @ May 10, 2023.
+ */
+
+/** 
+ * \brief allocate children enclave entry unconditionally.
+ * 
+ * \param metadata_head Parent enclave's children link head
+ * \param metadata_tail Parent enclave's children link tail
+ */
+struct children_enclave_t* __alloc_children(struct link_mem_t *metadata_head, struct link_mem_t *metadata_tail, uintptr_t *ptr)
+{
+  struct link_mem_t *cur, *next;
+  struct children_enclave_t* enclave = NULL;
+  int i = 0, found = 0;
+
+  // struct link_mem_t *metadata_head = *metadata_head_ptr;
+  // struct link_mem_t *metadata_tail = *metadata_tail_ptr;
+  
+  if (metadata_head == NULL)
+  {
+    sbi_printf("[sm] start init_mem_link\n");
+    metadata_head = init_mem_link(CHILDREN_METADATA_REGION_SIZE, sizeof(struct children_enclave_t));
+    if(!metadata_head)
+    {
+      sbi_printf("M mode: __alloc_children: don't have enough mempry\n");
+      goto alloc_children_out;
+    }
+    metadata_tail = metadata_head;
+  }
+  if (metadata_head)
+    sbi_printf("[sm] the metadata_head address is [%p]\n", metadata_head);
+  for (cur = metadata_head; cur != NULL; cur = cur->next_link_mem)
+  {
+    for (i = 0; i < (cur->slab_num); i++)
+    {
+      enclave = (struct children_enclave_t*)(cur->addr) + i;
+      if (enclave->state == INVALID)
+      {
+        sbi_memset((void*)enclave, 0, sizeof(struct children_enclave_t));
+        enclave->state = FRESH;
+        found = 1;
+        break;
+      }
+    }
+    if (found)
+      break;
+  }
+  if (!found)
+  {
+    sbi_printf("[sm] we don't have enough enclave metadata\n");
+    next = add_link_mem(&metadata_tail);
+    if(next == NULL)
+    {
+      sbi_bug("M mode: __alloc_enclave: add new link memory is failed\n");
+      enclave = NULL;
+      goto alloc_children_out;
+    }
+    enclave = (struct children_enclave_t*)(next->addr);
+    sbi_memset((void*)enclave, 0, sizeof(struct children_enclave_t));
+    enclave->state = FRESH;  
+  }
+  *ptr = (uintptr_t)metadata_head;
+  if (enclave)
+    sbi_printf("[sm] our allocated children address: [%p]\n", enclave);
+  /* if return NULL, higher layer function must return ENCLAVE_NO_MEM */
+alloc_children_out: 
+  return enclave;
+}
+
+/** 
+ * \brief free children enclave entry unconditionally.
+ * 
+ * \param eid Target children enclave eid
+ * \param metadata_head Parent enclave's children link head
+ * 
+ * \details We need to add duplication check in future. 
+ *          But now we trust the sanity check of existing eid slab struct in Penglai.
+ */
+int __free_children(int eid, struct link_mem_t *metadata_head)
+{
+  struct link_mem_t *cur;
+  struct children_enclave_t *enclave;
+  int i = 0, found = 0, retval = 0;
+
+  for (cur = metadata_head; cur != NULL; cur = cur->next_link_mem)
+  {
+    for (i = 0; i < (cur->slab_num); i++)
+    {
+      enclave = (struct children_enclave_t*)(cur->addr) + i;
+      if (enclave->state == FRESH && enclave->eid == eid) 
+      {
+        sbi_memset((void *)enclave, 0, sizeof(struct children_enclave_t));
+        enclave->state = INVALID;
+        found = 1;
+        retval = 0;
+        break;
+      }
+    }
+    if (found)
+      break;
+  }
+
+  //haven't alloc this eid 
+  if(!found) 
+  {
+    sbi_bug("M mode: __free_children: haven't alloc this children eid\n");
+    retval = -1;
+  }
+  return retval;
+}
+
+/** 
+ * \brief get children enclave entry unconditionally.
+ * 
+ * \param eid Target children enclave eid
+ * \param metadata_head Parent enclave's children link head
+ * 
+ * \details return NULL means eid not found. But unlike __free_children, it will not report sbi_bug.
+ */
+struct children_enclave_t* __get_children(int eid, struct link_mem_t *metadata_head)
+{
+  struct link_mem_t *cur;
+  struct children_enclave_t *enclave;
+  int i = 0, found = 0;
+
+  if (metadata_head)
+    sbi_printf("[sm] pointed address of metadata_head: [%p]\n", metadata_head);
+  else 
+    sbi_printf("[sm] address of metadata_head: [%p]\n", metadata_head);
+  for (cur = metadata_head; cur != NULL; cur = cur->next_link_mem)
+  {
+
+    sbi_printf("[sm] current cur: [%p]\n", cur);
+    for (i = 0; i < (cur->slab_num); i++)
+    {
+      enclave = (struct children_enclave_t*)(cur->addr) + i;
+
+      if (enclave->state == FRESH && enclave->eid == eid) {
+        sbi_printf("[sm] I found it! address is [%p]\n", enclave);
+        found = 1;
+        break;
+      }
+    }
+    if (found)
+      break;
+  }
+
+  //haven't alloc this eid 
+  if(!found)
+    enclave = NULL;
+
+  return enclave;
+}
 
 /********************************************/
 /*                   Relay Page             */
@@ -888,7 +1058,7 @@ uintptr_t change_relay_page_ownership(unsigned long relay_page_addr, unsigned lo
  */
 int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 {
-  sbi_printf("\n[sm] swap_from_host_to_enclave\n\n");
+  // sbi_printf("\n[sm] swap_from_host_to_enclave\n\n");
   //grant encalve access to memory
   if(grant_enclave_access(enclave) < 0)
     return -1;
@@ -941,7 +1111,7 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
  */
 int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
 {
-  sbi_printf("\n[sm] swap_from_enclave_to_host\n\n");
+  // sbi_printf("\n[sm] swap_from_enclave_to_host\n\n");
   //retrieve enclave access to memory
   retrieve_enclave_access(enclave);
 
@@ -1203,6 +1373,7 @@ void initilze_va_struct(struct pm_area_struct* pma, struct vm_area_struct* vma, 
 uintptr_t create_enclave(enclave_create_param_t create_args)
 {
   struct enclave_t* enclave = NULL;
+  struct enclave_t* parent = NULL;
   struct pm_area_struct* pma = NULL;
   struct vm_area_struct* vma = NULL;
   uintptr_t ret = 0, free_mem = 0;
@@ -1247,14 +1418,101 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
   }
 
   SET_ENCLAVE_METADATA(create_args.entry_point, enclave, &create_args, enclave_create_param_t *, paddr);
-  // sbi_printf("[sm] arg.base: [%lu]\n", create_args.base);
+
+  sbi_printf("[sm] create eid: [%u]\n", enclave->eid);
+  sbi_printf("[sm] parent eid: [%lu]\n", enclave->parent_eid);
   sbi_printf("[sm] enclave_mem.paddr [again]: [%lu]\n", create_args.paddr);
   sbi_printf("[sm] root_page_table: [%lu]\n", enclave->root_page_table);
   sbi_printf("[sm] host_ptbr: [%lu]\n", enclave->host_ptbr);
   sbi_printf("[sm] encl_ptbr: [%lu]\n", enclave->thread_context.encl_ptbr);
   sbi_printf("[sm] enclave.entrypoint: [%lu]\n", create_args.entry_point);
   // sbi_printf("[sm] enclave.satp: [%lu]", enclave->thread_context.encl_ptbr);
+  if (enclave->type == NORMAL_ENCLAVE)
+  {
+    sbi_printf("[sm] it's NORMAL_ENCLAVE\n");
+  }
+  else if (enclave->type == PRIVIL_ENCLAVE)
+  {
+    sbi_printf("[sm] it's PRIVIL_ENCLAVE\n");
+  }
+  else 
+  {
+    sbi_bug("M mode: unexpected enclave type\n");
+  }
+
+  acquire_enclave_metadata_lock();
+
+  if (enclave->parent_eid != NULL_EID)
+  {
+    parent = __get_enclave(enclave->parent_eid);
+    if (!parent)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: cannot access parent enclave [%lu]\n", enclave->parent_eid);
+      goto release_and_fail;
+    }
+    if (parent->type != PRIVIL_ENCLAVE || parent->state < FRESH)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: illegal parent [%lu]\n", enclave->parent_eid);
+      goto release_and_fail;
+    }
+
+    if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] has existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
+      goto release_and_fail;
+    }
+    sbi_printf("[sm] __alloc_children [START] \n");
+    
+    uintptr_t address;
+    struct children_enclave_t *children_enclave = __alloc_children(parent->children_metadata_head, 
+                                                                  parent->children_metadata_tail, &address);
+    /* call penglai_extend_secure_memory() to alloc new mm_region */
+    if (!children_enclave)
+    {
+      ret = ENCLAVE_NO_MEM;
+      sbi_bug("M mode: __alloc_children no enough memory\n");
+      goto release_and_fail;
+    }
+    children_enclave->eid = enclave->eid;
+
+    /* check: search again. */
+    sbi_printf("[sm] CHILDREN_ALLOC BASIC TEST [START]\n");
+    sbi_printf("[sm] address: [%lu]\n", address);
+    sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
+    parent->children_metadata_head = (struct link_mem_t*)address;
+    parent->children_metadata_tail = (struct link_mem_t*)address;
+    sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
+    if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
+      goto release_and_fail;
+    }
+    else 
+    {
+      sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
+    }
+    if (__free_children(enclave->eid, parent->children_metadata_head))
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] free failed [check again]\n", enclave->eid);
+      goto release_and_fail;
+    }
+    if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
+      goto release_and_fail;
+    }
+    sbi_printf("[sm] CHILDREN_ALLOC PASSED BASIC TEST!\n");
+    /* check end */
+  }
   
+  release_enclave_metadata_lock();
+
   //traverse vmas
   pma = (struct pm_area_struct*)(create_args.paddr);
   vma = (struct vm_area_struct*)(create_args.paddr + sizeof(struct pm_area_struct));
@@ -1307,14 +1565,17 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
     enclave->shm_paddr = 0;
     enclave->shm_size = 0;
   }
-  
+
   hash_enclave(enclave, (void*)(enclave->hash), 0);
   copy_word_to_host((unsigned int*)create_args.eid_ptr, enclave->eid);
 
   //Sync and flush the remote TLB entry.
   tlb_remote_sfence();
+  sbi_printf("now we end create!\n");
   return ret;
 
+release_and_fail:
+  release_enclave_metadata_lock();
 failed:
   if(need_free_secure_memory)
   {
@@ -1647,7 +1908,7 @@ uintptr_t run_shadow_enclave(uintptr_t* regs, unsigned int eid, shadow_enclave_r
     goto run_enclave_out;
   }
 
-  SET_ENCLAVE_METADATA(shadow_enclave->entry_point, enclave, &enclave_run_param, shadow_enclave_run_param_t *, free_page);
+  SET_SHADOW_ENCLAVE_METADATA(shadow_enclave->entry_point, enclave, &enclave_run_param, shadow_enclave_run_param_t *, free_page);
 
   //traverse vmas
   pma = (struct pm_area_struct*)(enclave_run_param.free_page);
@@ -3291,4 +3552,424 @@ uintptr_t enclave_getrandom(uintptr_t *regs, uintptr_t random_buff, uintptr_t si
 out:
   release_enclave_metadata_lock();
   return ret;
+}
+
+
+/**
+ * todo: add PE ocalls.
+ * by Ganxiang Yang @ May 8, 2023.
+*/
+
+/**
+ * \brief This transitional function transfer PE's create_enclave Ocall to host.
+ * 
+ * \param regs The PE context
+ * \param enclave_create_args The enclave create arguments (VA)
+ */
+uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
+{
+  /* sanity check: caller should be an active PE */
+  uintptr_t ret = 0;
+  struct enclave_t *enclave = NULL; // current running enclave, should be PE.
+  int eid = 0; 
+  unsigned remain_page_size;
+  // unsigned param_size = sizeof(enclave_create_param_t) + ELF_FILE_LEN;
+  unsigned param_size = sizeof(ocall_create_param_t);
+  if(check_in_enclave_world() < 0)
+  {
+    sbi_bug("M mode: privil_create_enclave: CPU is not in the enclave mode\n");
+    return -1UL;
+  }
+
+  acquire_enclave_metadata_lock();
+  
+  /* slab-level eid */
+  eid = get_curr_enclave_id();
+  sbi_printf("[sm] get_curr_enclave_id: [%u]\n", eid);
+  enclave = __get_enclave(eid);
+  if( !enclave || 
+      check_enclave_authentication(enclave)!=0 || 
+      enclave->state != RUNNING || 
+      enclave->type != PRIVIL_ENCLAVE)
+  {
+    // early reject.
+    ret = -1UL;
+    sbi_bug("M mode: privil_create_enclave: enclave%d can not be accessed!\n", eid);
+    goto out;
+  }
+  
+  void *create_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_create_args);
+  if (!create_args) 
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_create_enclave: enclave_create_args pointer is not valid\n");
+    goto out;
+  }
+  /* pass the slab eid */
+  ((ocall_create_param_t *)create_args)->eid = eid;
+
+  /* Avoid same-VA-page but diff-PA-page situation. */
+  remain_page_size = PAGE_SIZE - (enclave_create_args & (PAGE_SIZE-1));
+  if (param_size > remain_page_size) 
+  {
+    copy_to_host((void*)(enclave->kbuffer), create_args, remain_page_size);
+    copy_to_host((void*)(enclave->kbuffer+remain_page_size), 
+                 va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(enclave_create_args+remain_page_size)),
+                 param_size - remain_page_size);
+  } 
+  else 
+  {
+    copy_to_host((void*)(enclave->kbuffer), create_args, param_size);
+  }
+  
+  copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_CREATE_ENCLAVE);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  
+  /* return to host with Ocall identity */
+  swap_from_enclave_to_host(regs, enclave);
+  sbi_printf("turn [privil_create_enclave] to [sdk driver]\n");
+  enclave->state = OCALLING;
+  ret = ENCLAVE_OCALL;
+out:
+  release_enclave_metadata_lock();
+  return ret;
+}
+
+/**
+ * \brief This transitional function is used to attest the NE.
+ * 
+ * \param eid The enclave id.
+ * \param report The enclave measurement report.
+ * \param nouce The attestation nonce.
+ */
+uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t report_ptr, uintptr_t nonce) 
+{
+  /* sanity check: caller should be an active PE */
+  uintptr_t ret = 0;
+//   struct enclave_t *enclave = NULL;
+//   if(check_in_enclave_world() < 0)
+//   {
+//     sbi_bug("M mode: privil_attest_enclave: CPU is not in the enclave mode\n");
+//     return -1UL;
+//   }
+//   /* todo: need update. */
+//   acquire_enclave_metadata_lock();
+//   enclave = __get_enclave(eid);
+//   if( !enclave || (enclave->state != FRESH && enclave->state != STOPPED) || 
+//       enclave->host_ptbr != csr_read(CSR_SATP) ||  
+//       enclave->type != PRIVIL_ENCLAVE)
+//   {
+//     attestable = 0;
+//   }
+//   else
+//   {
+//     old_state = enclave->state;
+//     enclave->state = ATTESTING;
+//   }
+//   release_enclave_metadata_lock();
+
+//   if(!attestable)
+//   {
+//     sbi_printf("M mode: privil_attest_enclave: enclave%ld is not attestable\n", eid);
+//     return -1UL;
+//   }
+//   /* do hash */
+  
+// out:
+//   release_enclave_metadata_lock();
+  return ret;
+}
+
+/**
+ * \brief This transitional function is used to enter the NE.
+ * 
+ * \param regs The regs context
+ * \param eid   The enclave id
+ * \param enclave_run_args The run parameter
+ */
+uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t tgt_eid, uintptr_t enclave_run_param) 
+{
+  /* sanity check: caller should be an active PE */
+  uintptr_t ret = 0;
+  // uintptr_t mmap_offset = 0;
+//   int cur_eid = 0;
+//   enclave_run_param_t enclave_sbi_param_local;
+//   struct enclave_t *cur_enclave = NULL;
+//   struct enclave_t *tgt_enclave = NULL;
+//   if(check_in_enclave_world() < 0)
+//   {
+//     sbi_bug("M mode: privil_run_enclave: CPU is not in the enclave mode\n");
+//     return -1UL;
+//   }
+
+//   acquire_enclave_metadata_lock();
+  
+//   cur_eid = get_curr_enclave_id();
+//   cur_enclave = __get_enclave(cur_eid);
+//   tgt_enclave = __get_enclave(tgt_eid);
+
+//   release_enclave_metadata_lock();
+
+//   if (!tgt_enclave || tgt_enclave->state != FRESH || tgt_enclave->type == SERVER_ENCLAVE || 
+//        tgt_enclave->parent_eid != cur_eid || cur_enclave->type != PRIVIL_ENCLAVE)
+//   {
+//     sbi_bug("M mode: privil_run_enclave: enclave%d can not be accessed!\n", eid);
+//     retval = -1UL;
+//     goto out;
+//   }
+//   /* Do run_enclave below */
+
+// out:
+//   tlb_remote_sfence();
+  return ret;
+}
+
+/**
+ * \brief This transitional function is used to stop the NE.
+ * 
+ * \param regs The regs context
+ * \param eid   The enclave id
+ */
+uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid) 
+{
+  // uintptr_t cur_eid;
+  uintptr_t ret = 0;
+  // uintptr_t dest_hart = 0;
+//   struct enclave_t *cur_enclave = NULL;
+//   struct enclave_t *tgt_enclave = NULL;
+//   if(check_in_enclave_world() < 0)
+//   {
+//     sbi_bug("M mode: privil_stop_enclave: should not be called by host itself\n");
+//     return -1UL;
+//   }
+//   acquire_enclave_metadata_lock();
+//   cur_eid = get_curr_enclave_id();
+//   cur_enclave = __get_enclave(cur_eid);
+//   tgt_enclave = __get_enclave(eid);
+
+//   if(!tgt_enclave || 
+//       tgt_enclave->state <= FRESH || tgt_enclave->state == ATTESTING || tgt_enclave->state == OCALLING || 
+//       tgt_enclave->host_ptbr != csr_read(CSR_SATP) || 
+//       tgt_enclave->type == SERVER_ENCLAVE || 
+//       cur_enclave->type != PRIVIL_ENCLAVE || 
+//       tgt_enclave->parent_eid != cur_eid)
+//   {
+//     sbi_bug("M mode: privil_stop_enclave: enclave%d can not be accessed!\n", eid);
+//     ret = -1UL;
+//     goto stop_enclave_out;
+//   }
+
+//   // temporarily...
+//   if(tgt_enclave->state != RUNNING)
+//   {
+//     tgt_enclave->state = STOPPED;
+//     release_enclave_metadata_lock();
+//   }
+//   else
+//   {
+//     //cpus' state will be protected by enclave_metadata_lock
+//     for(int i = 0; i < MAX_HARTS; ++i)
+//     {
+//       if(cpus[i].in_enclave && cpus[i].eid == eid)
+//         dest_hart = i;
+//     }
+//     if (dest_hart == csr_read(CSR_MHARTID))
+//     {
+//       NEED_STOP_ENCLAVE[dest_hart] = 1;
+//       release_enclave_metadata_lock();
+//       ipi_stop_enclave(regs, csr_read(CSR_SATP), eid);
+//     }
+//     else
+//     {
+//       NEED_STOP_ENCLAVE[dest_hart] = 1;
+//       release_enclave_metadata_lock();
+//       set_ipi_stop_enclave_and_sync(dest_hart, csr_read(CSR_SATP), eid);
+//     }
+//   }
+
+// stop_enclave_out:
+  return ret;
+
+  /* use ipi to stop enclave in other harts, kind of complicated. */
+}
+
+/**
+ * \brief This transitional function is used to resume the NE.
+ * 
+ * \param regs The regs context
+ * \param eid   The enclave id
+ */
+uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t eid)
+{
+  uintptr_t ret = 0;
+  // uintptr_t cur_eid = 0;
+
+//   struct enclave_t* cur_enclave = NULL;
+//   struct enclave_t* tgt_enclave = NULL;
+
+//   acquire_enclave_metadata_lock();
+//   cur_eid = get_curr_enclave_id();
+//   cur_enclave = __get_enclave(cur_eid);
+//   tgt_enclave = __get_real_enclave(eid);
+
+//   if(!tgt_enclave || (tgt_enclave->state <= INVALID))
+//   {
+//     sbi_printf("M mode: privil_resume_enclave: enclave%d is not existed\n", eid);
+//     ret = 0UL;
+//     goto out;
+//   }
+  
+//   if(tgt_enclave->parent_eid != cur_eid || cur_enclave->type != PRIVIL_ENCLAVE)
+//   {
+//     sbi_printf("M mode: privil_resume_enclave: enclave%d cannot be accessed\n", eid);
+//     ret = 0UL;
+//     goto out;
+//   }
+
+//   if(tgt_enclave->state <= FRESH || tgt_enclave->host_ptbr != csr_read(CSR_SATP))
+//   {
+//     sbi_bug("M mode: privil_resume_enclave: enclave%d cannot resume state %d\n", eid, tgt_enclave->state);
+//     ret = -1UL;
+//     goto out;
+//   }
+
+//   if(tgt_enclave->state == STOPPED)
+//   {
+//     sbi_printf("[sm] privil_resume_enclave: enclave%d is stopped\n", eid);
+//     ret = ENCLAVE_TIMER_IRQ;
+//     goto out;
+//   }
+
+//   if(tgt_enclave->state != RUNNABLE)
+//   {
+//     sbi_bug("M mode: privil_resume_enclave: enclave%d is not runnable\n", eid);
+//     ret = -1UL;
+//     goto out;
+//   }
+
+//   if(swap_from_host_to_enclave(regs, tgt_enclave) < 0)
+//   {
+//     sbi_bug("M mode: privil_resume_enclave: enclave can not be resume\n");
+//     ret = -1UL;
+//     goto out;
+//   }
+//   enclave->state = RUNNING;
+//   // regs[10] will be set to ret when mcall_trap return, so we have to
+//   // set ret to be regs[10] here to succuessfully restore context
+//   ret = regs[10];
+// out:
+//   release_enclave_metadata_lock();
+  return ret;
+}
+
+/**
+ * \brief PE calls this function to destroy an existing enclave.
+ * 
+ * \param regs The host register context.
+ * \param eid Destroyed enclave id.
+ */
+uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid)
+{
+  uintptr_t retval = 0;
+//   uintptr_t cur_eid = 0;
+//   struct enclave_t *enclave = NULL;
+//   struct enclave_t *cur_enclave = NULL;
+//   uintptr_t dest_hart = 0;
+//   struct pm_area_struct* pma = NULL;
+//   int top_caller_id;
+//   struct enclave_t *top_caller_enclave = NULL;
+//   unsigned long satp = 0;
+//   acquire_enclave_metadata_lock();
+
+//   cur_enclave = __get_enclave(cur_eid);
+//   enclave = __get_enclave(eid);
+
+//   if(check_in_enclave_world() == 0)
+//     satp = enclave->host_ptbr;
+//   else
+//     satp = csr_read(CSR_SATP);
+
+//   unsigned long mm_arg_paddr[RELAY_PAGE_NUM];
+//   unsigned long mm_arg_size[RELAY_PAGE_NUM];
+//   for(int kk = 0; kk < RELAY_PAGE_NUM; kk++)
+//   {
+//     mm_arg_paddr[kk] = enclave->mm_arg_paddr[kk];
+//     mm_arg_size[kk] = enclave->mm_arg_size[kk];
+//   }
+//   if(!enclave || enclave->state < FRESH)
+//   {
+//     sbi_bug("M mode: destroy_enclave: enclave%d can not be accessed\n", eid);
+//     retval = -1UL;
+//     release_enclave_metadata_lock();
+//     goto destroy_enclave_out;
+//   }
+//   if(enclave->parent_eid != cur_eid || cur_enclave->type != PRIVIL_ENCLAVE)
+//   {
+//     sbi_bug("M mode: destroy_enclave: enclave%d can not be accessed\n", eid);
+//     retval = -1UL;
+//     release_enclave_metadata_lock();
+//     goto destroy_enclave_out;
+//   }
+
+//   // Enclave is not running, just reclaim the enclave resource and free its metadata
+//   if(enclave->state != RUNNING)
+//   {
+//     if (enclave->type == SERVER_ENCLAVE)
+//     {
+//       release_enclave_metadata_lock();
+//       destroy_server_enclave(regs, eid);
+//     }
+//     else
+//     {
+//       pma = enclave->pma_list;
+//       __free_enclave(eid);
+//       free_enclave_memory(pma);
+//       free_all_relay_page(mm_arg_paddr, mm_arg_size);
+//       release_enclave_metadata_lock();
+//     }
+//   }
+//   // Enclave is running, reclaim the enclave resource and swap CPU state to the normal mode.
+//   else
+//   {
+//     //cpus' state will be protected by enclave_metadata_lock
+//     for(int i = 0; i < MAX_HARTS; ++i)
+//     {
+//       if(cpus[i].in_enclave && cpus[i].eid == eid)
+//         dest_hart = i;
+//     }
+//     // If enclave is running in the current hart
+//     if (dest_hart == csr_read(CSR_MHARTID))
+//     {
+//       NEED_DESTORY_ENCLAVE[dest_hart] = 1;
+//       if(enclave->type == SERVER_ENCLAVE)
+//       {
+//         top_caller_id = enclave->top_caller_eid;
+//         top_caller_enclave = __get_enclave(top_caller_id);
+//         // Return the runncing context to the top caller enclave
+//         __enclave_return(regs, enclave, top_caller_enclave, top_caller_enclave);
+//         enclave->state = RUNNABLE;
+//         top_caller_enclave->state = RUNNING;
+//         eid = top_caller_id;
+//       }
+//       release_enclave_metadata_lock();
+//       // Destroy the top caller / current enclave
+//       ipi_destroy_enclave(regs, satp, eid);
+//     }
+//     else
+//     {
+//       if(enclave->type == SERVER_ENCLAVE)
+//       {
+//         sbi_bug("M mode: destroy_enclave: destroy a server enclane%d which is not running\n", eid);
+//         retval = -1UL;
+//         release_enclave_metadata_lock();
+//         goto destroy_enclave_out;
+//       }
+//       NEED_DESTORY_ENCLAVE[dest_hart] = 1;
+//       release_enclave_metadata_lock();
+//       set_ipi_destroy_enclave_and_sync(dest_hart, satp, eid);
+//     }
+//   }
+
+// destroy_enclave_out:
+  return retval;
 }

@@ -7,7 +7,7 @@ INCLUDE_DIR = include/
 ARFLAGS = rcs
 
 ASM_SRCS = src/eret.S
-C_SRCS = src/enclave.c src/attest.c src/mmap.c src/server_enclave.c src/print.c src/sbrk.c src/persistency.c src/relay_page.c src/psa_call_stub.c src/sst_secure_api.c src/psa_callee_stub.c
+C_SRCS = src/enclave.c src/attest.c src/mmap.c src/server_enclave.c src/print.c src/sbrk.c src/persistency.c src/relay_page.c src/psa_call_stub.c src/sst_secure_api.c src/psa_callee_stub.c src/privil.c
 
 A_OBJS = $(patsubst %.S,%.o,$(ASM_SRCS))
 C_OBJS = $(patsubst %.c,%.o,$(C_SRCS))

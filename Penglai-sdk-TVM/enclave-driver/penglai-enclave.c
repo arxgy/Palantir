@@ -118,7 +118,7 @@ enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type)
     goto free_enclave;
   }
   memset((void*)addr, 0, RISCV_PGSIZE*count);
-  if(type == NORMAL_ENCLAVE)
+  if(type == NORMAL_ENCLAVE || type == PRIVIL_ENCLAVE)
   {
     kbuffer = penglai_get_free_pages(GFP_KERNEL, ENCLAVE_DEFAULT_KBUFFER_ORDER);
     if(!kbuffer)

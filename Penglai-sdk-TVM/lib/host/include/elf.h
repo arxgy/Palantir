@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <string.h>
+#define ELF_FILE_LEN 256
 
 struct elf_args
 {

@@ -5,6 +5,16 @@
         "*.inc": "c",
         "print.h": "c",
         "types.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "fscallargs.h": "c",
+        "stdio.h": "c",
+        "fcntl.h": "c",
+        "eapp.h": "c",
+        "syscall.h": "c",
+        "fs.h": "c",
+        "err.h": "c",
+        "stat.h": "c",
+        "elf.h": "c",
+        "enclave_error.h": "c"
     }
 }

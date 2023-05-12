@@ -14,6 +14,10 @@
 #define SM_HASH                (SM_PRI_KEY + PRIVATE_KEY_SIZE)
 #define SM_SIGNATURE           (SM_HASH + HASH_SIZE)
 
+/* Restriction on PE's NE file length*/
+#define ELF_FILE_LEN       256
+/* let 0xffffffffffffffffUL be NULL slab eid */
+#define NULL_EID           -1
 struct mm_alloc_arg_t
 {
   unsigned long req_size;
@@ -61,12 +65,17 @@ struct pt_entry_t
 typedef enum
 {
   NORMAL_ENCLAVE = 0,
-  SERVER_ENCLAVE = 1
+  SERVER_ENCLAVE = 1, 
+  SHADOW_ENCLAVE = 2,
+  PRIVIL_ENCLAVE = 3
 } enclave_type_t;
 
 typedef struct enclave_create_param
 {
   unsigned int *eid_ptr;
+  /* caller enclave id, -1 as OS */
+  unsigned long create_caller_eid;
+
   char name[NAME_LEN];
   enclave_type_t type;
 
@@ -104,6 +113,9 @@ typedef struct shadow_enclave_run_param
   unsigned long free_page;
   unsigned long size;
   unsigned int *eid_ptr;
+
+  /* caller enclave id, -1 as OS */
+  unsigned long create_caller_eid;
 
   unsigned long kbuffer;//paddr
   unsigned long kbuffer_size;

@@ -129,3 +129,45 @@ EAPP_GET_KEY:
     li a6, SBI_EXT_PENGLAI_ENCLAVE
 	ecall
     ret
+
+.globl EAPP_CREATE_ENCLAVE
+EAPP_CREATE_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall
+    ret
+
+.globl EAPP_ATTEST_ENCLAVE
+EAPP_ATTEST_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall
+    ret
+    
+.globl EAPP_RUN_ENCLAVE
+EAPP_RUN_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall
+    ret
+
+.globl EAPP_STOP_ENCLAVE
+EAPP_STOP_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall
+    ret
+
+.globl EAPP_RESUME_ENCLAVE
+EAPP_RESUME_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall
+    ret
+
+.globl EAPP_DESTROY_ENCLAVE
+EAPP_DESTROY_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall
+    ret

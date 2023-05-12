@@ -21,5 +21,12 @@
 #define OCALL_SBRK          4
 #define OCALL_READ_SECT     5
 #define OCALL_WRITE_SECT    6
+/* add musl-lib-level selector support */
+#define OCALL_CREATE_ENCLAVE		 16
+#define OCALL_ATTEST_ENCLAVE		 17
+#define OCALL_RUN_ENCLAVE		 	 18
+#define OCALL_STOP_ENCLAVE		 	 19
+#define OCALL_RESUME_ENCLAVE		 20
+#define OCALL_DESTROY_ENCLAVE		 21
 
 #endif

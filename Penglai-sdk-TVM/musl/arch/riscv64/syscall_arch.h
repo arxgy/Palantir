@@ -29,6 +29,14 @@
 #define OCALL_WRITE_SECT    6
 #define OCALL_RETURN_RELAY_PAGE    7
 #define OCALL_GETRANDOM     8
+/* add musl-lib-level selector support */
+#define OCALL_CREATE_ENCLAVE		 16
+#define OCALL_ATTEST_ENCLAVE		 17
+#define OCALL_RUN_ENCLAVE		 	 18
+#define OCALL_STOP_ENCLAVE		 	 19
+#define OCALL_RESUME_ENCLAVE		 20
+#define OCALL_DESTROY_ENCLAVE		 21
+
 
 #define __asm_syscall(...) \
 	__asm__ __volatile__ ("ecall\n\t" \

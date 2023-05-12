@@ -1128,6 +1128,26 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
     case OCALL_GETRANDOM:
       ret = enclave_getrandom(regs, arg0, arg1);
       break;
+    /* add our Ocall transition functions here. */
+    case OCALL_CREATE_ENCLAVE:
+      // the arg0 is the VA of create_arg
+      ret = privil_create_enclave(regs, arg0);
+      break;
+    case OCALL_ATTEST_ENCLAVE:
+      ret = privil_attest_enclave(regs, arg0, arg1, arg2);
+      break;
+    case OCALL_RUN_ENCLAVE:
+      ret = privil_run_enclave(regs, arg0, arg1);
+      break;
+    case OCALL_STOP_ENCLAVE:
+      ret = privil_stop_enclave(regs, arg0);
+      break;
+    case OCALL_RESUME_ENCLAVE:
+      ret = privil_resume_enclave(regs, arg0);
+      break;
+    case OCALL_DESTROY_ENCLAVE:
+      ret = privil_destroy_enclave(regs, arg0);
+      break; 
     default:
       ret = -1UL;
       break;

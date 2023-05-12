@@ -41,6 +41,13 @@ void* EAPP_MMAP(unsigned long ocall_func_id, void* vaddr, unsigned long size);
 int EAPP_UNMAP(unsigned long ocall_func_id, void* vaddr, unsigned long size);
 unsigned long EAPP_ACQUIRE_ENCLAVE(char* name);
 unsigned long EAPP_CALL_ENCLAVE(unsigned long handle, struct call_enclave_arg_t *arg);
+/* add Ecalls here. */
+int EAPP_CREATE_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_ATTEST_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_RUN_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_STOP_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_RESUME_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 
 void* eapp_mmap(void* vaddr, unsigned long size);
 int eapp_unmap(void* vaddr, unsigned long size);
@@ -48,6 +55,14 @@ void* sbrk(long size);
 
 unsigned long acquire_enclave(char* name);
 unsigned long call_enclave(unsigned long handle, struct call_enclave_arg_t* arg);
+
+/* add app-level support */
+int eapp_create_enclave(unsigned long ocall_param_vaddr);
+int eapp_attest_enclave(unsigned long ocall_param_vaddr);
+int eapp_run_enclave(unsigned long ocall_param_vaddr);
+int eapp_stop_enclave(unsigned long ocall_param_vaddr);
+int eapp_resume_enclave(unsigned long ocall_param_vaddr);
+int eapp_destroy_enclave(unsigned long ocall_param_vaddr);
 
 #define EAPP_ENTRY __attribute__((__section__(".text._start")))
 #define EAPP_RESERVE_REG   asm volatile("addi sp,sp,-256\n\t" \
