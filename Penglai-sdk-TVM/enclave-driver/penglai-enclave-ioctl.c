@@ -283,14 +283,7 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       penglai_eprintf("privil_enclave_eapp_loading is failed\n");;
       goto destroy_enclave;
     }
-    // penglai_printf("parent eid: [%d]\n", enclave_param->eid);
     
-    // spin_unlock(&enclave_create_lock);
-    // /* stop it for now */
-    // kfree(elf_file_name);
-    // kfree(elf_file_buf);
-    // penglai_printf("NOW we return\n");
-    // return 0;
   }
 
   /* shared by privil/normal create */

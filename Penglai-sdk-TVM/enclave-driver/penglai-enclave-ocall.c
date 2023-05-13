@@ -137,14 +137,17 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
 {
   int ret = 0;
   void *kbuf;
+  unsigned long resume_arg_addr;
   if (isShadow) 
   {
     // TODO.
     kbuf = (void *) __va(enclave_instance->ocall_arg0);
+    resume_arg_addr = enclave_instance->ocall_arg1;
   } 
   else 
   {
     kbuf = (void *) __va(enclave->ocall_arg0);
+    resume_arg_addr = enclave->ocall_arg1;
   }
   ocall_create_param_t *ocall_create_param_local = (ocall_create_param_t *) (kbuf);
   
@@ -152,7 +155,7 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   // step 1. prepare
   //         - copy parameters
   //         - do sanity checks
-  /* pass slab-level enclave eid */
+  /* pass slab-level launched enclave eid */
   enclave_param.eid = ocall_create_param_local->eid;
   /* the elf_ptr and elf_size won't be used in PE create */
   enclave_param.elf_ptr = ocall_create_param_local->elf_file_ptr;
@@ -175,8 +178,15 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   {
     penglai_eprintf("handle_ocall_create_enclave: penglai_enclave_ocall_create is failed\n"); 
   }
+  penglai_printf("[sdk driver] slab-level launcher enclave eid: [%u]\n", ocall_create_param_local->eid);
+  penglai_printf("[sdk driver] idr-level launchee enclave eid: [%lu]\n", enclave_param.eid);
+  penglai_printf("[sdk driver] address of enclave->ocall_arg1: [%p]\n", (void *)&(enclave->ocall_arg1));
+  penglai_printf("[sdk driver] content of enclave->ocall_arg1: [%lu]\n", enclave->ocall_arg1);
+  penglai_printf("[sdk driver] content of resume_arg_addr: [%lu]\n", resume_arg_addr);
+  // ocall_create_param_local->eid = enclave_param.eid;
   // step 3. resume.
-  ret = SBI_PENGLAI_3(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_CREATE_ENCLAVE);
+  /* write parameter back to vaddr struct in userspace */
+  ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_CREATE_ENCLAVE, resume_arg_addr, enclave_param.eid);
   return ret;
 }
 

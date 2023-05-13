@@ -1480,33 +1480,33 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
     /* check: search again. */
     sbi_printf("[sm] CHILDREN_ALLOC BASIC TEST [START]\n");
-    sbi_printf("[sm] address: [%lu]\n", address);
-    sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
-    parent->children_metadata_head = (struct link_mem_t*)address;
-    parent->children_metadata_tail = (struct link_mem_t*)address;
-    sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
-    if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
-    {
-      ret = ENCLAVE_ERROR;
-      sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
-      goto release_and_fail;
-    }
-    else 
-    {
-      sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
-    }
-    if (__free_children(enclave->eid, parent->children_metadata_head))
-    {
-      ret = ENCLAVE_ERROR;
-      sbi_bug("M mode: children [%u] free failed [check again]\n", enclave->eid);
-      goto release_and_fail;
-    }
-    if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
-    {
-      ret = ENCLAVE_ERROR;
-      sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
-      goto release_and_fail;
-    }
+    // sbi_printf("[sm] address: [%lu]\n", address);
+    // sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
+    // parent->children_metadata_head = (struct link_mem_t*)address;
+    // parent->children_metadata_tail = (struct link_mem_t*)address;
+    // sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
+    // if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
+    // {
+    //   ret = ENCLAVE_ERROR;
+    //   sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
+    //   goto release_and_fail;
+    // }
+    // else 
+    // {
+    //   sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
+    // }
+    // if (__free_children(enclave->eid, parent->children_metadata_head))
+    // {
+    //   ret = ENCLAVE_ERROR;
+    //   sbi_bug("M mode: children [%u] free failed [check again]\n", enclave->eid);
+    //   goto release_and_fail;
+    // }
+    // if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
+    // {
+    //   ret = ENCLAVE_ERROR;
+    //   sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
+    //   goto release_and_fail;
+    // }
     sbi_printf("[sm] CHILDREN_ALLOC PASSED BASIC TEST!\n");
     /* check end */
   }
@@ -2280,6 +2280,34 @@ run_enclave_out:
   return retval;
 }
 
+/** add our after_resume function here for parameter write-back
+ * by Ganxiang Yang @ May 13, 2023.
+*/
+/**
+ * \brief Write the allocated eid back to PE's param
+ * 
+ * \param enclave The enclave structure.
+ * \param vaddr The PE's param address (VA)
+ * \param alloc_eid The allocated eid
+ */
+uintptr_t privil_create_after_resume(struct enclave_t *enclave, uintptr_t vaddr, uintptr_t alloc_eid)
+{
+  sbi_printf("[sm] address of PE param: [%lu]\n", vaddr);
+  sbi_printf("[sm] allocated eid: [%lu]\n", alloc_eid);
+  
+  uintptr_t retval = 0;
+  void *create_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)vaddr);
+  if (!create_args)
+  {
+    retval = -1UL;
+    sbi_bug("M mode: privil_create_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
+    goto out;
+  }
+  ((ocall_create_param_t *)create_args)->eid = alloc_eid;
+out:
+  return retval;
+}
+
 /**
  * \brief Host use this fucntion to re-enter enclave world.
  * 
@@ -2336,6 +2364,9 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
       break;
     case OCALL_SHM_EXTEND_MEMORY:
       retval = shmextend_after_resume(enclave,regs[13]);
+      break;
+    case OCALL_CREATE_ENCLAVE:
+      retval = privil_create_after_resume(enclave, regs[13], regs[14]);
       break;
     default:
       retval = 0;
@@ -3624,6 +3655,13 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   
   copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_CREATE_ENCLAVE);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_create_args);
+
+  // sbi_printf("[sm] address of enclave_create_args:[%lu]\n", enclave_create_args);
+  sbi_printf("[sm] copy (uintptr_t)enclave_create_args to ocall_arg1:[%lu]\n", (uintptr_t)enclave_create_args);
+  sbi_printf("[sm] ocall_arg1 address:[%p]\n", (uintptr_t*)enclave->ocall_arg1);
+  sbi_printf("[sm] ocall_arg1 content:[%lu]\n", *(enclave->ocall_arg1));
+
   
   /* return to host with Ocall identity */
   swap_from_enclave_to_host(regs, enclave);
