@@ -239,7 +239,11 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       goto free_variable;
     }
     ret = kernel_read(elf_file, elf_file_buf, elf_file_size, &pos);
-
+    if (filp_close(elf_file, NULL))
+    {
+      penglai_eprintf("[sdk driver] filp_close failed.\n");
+      goto free_variable;
+    }
     if (ret != elf_file_size)
     {
       penglai_eprintf("[sdk driver] kernel_read size is mismatched with elf_file [%.*s] size\n",

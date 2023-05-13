@@ -5,6 +5,7 @@
 #include "penglai-schrodinger.h"
 #include "penglai-enclave-persistency.h"
 #include "penglai-enclave-ocall.h"
+#include "penglai-enclave.h"
 
 int handle_ocall_mmap(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
@@ -138,6 +139,7 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   int ret = 0;
   void *kbuf;
   unsigned long resume_arg_addr;
+  // TODO: check ocall_arg0 is NULL or not.
   if (isShadow) 
   {
     // TODO.
@@ -193,7 +195,38 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
 
 int handle_ocall_attest_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
-  int ret;
+  int ret = 0;
+  void *kbuf;
+  enclave_t *attest_enclave = NULL;
+  unsigned long resume_arg_addr;
+  // TODO: check ocall_arg0 is NULL or not.
+  if (isShadow) 
+  {
+    // TODO.
+    kbuf = (void *) __va(enclave_instance->ocall_arg0);
+    resume_arg_addr = enclave_instance->ocall_arg1;
+  } 
+  else 
+  {
+    kbuf = (void *) __va(enclave->ocall_arg0);
+    resume_arg_addr = enclave->ocall_arg1;
+  }
+  /** step 1. get the slab-layer eid by idr-layer eid. 
+   *  Since we cannot acquire idr-layer eid in SM, we jump to driver to handle this.
+   */
+  ocall_attest_param_t *ocall_attest_param_local = (ocall_attest_param_t *)(kbuf);
+  penglai_printf("[sdk driver] attestee idr eid: [%d]\n", ocall_attest_param_local->attest_eid);
+  attest_enclave = get_enclave_by_id(ocall_attest_param_local->attest_eid);
+  if (!attest_enclave)
+  {
+    penglai_eprintf("[sdk driver] failed to find this attestee enclave\n");
+  }
+  penglai_printf("[sdk driver] attestee eid from get_enclave_by_id: [%u]\n", attest_enclave->eid);
+
+  /**
+   * step 2. return the slab-layer eid back to SM.
+  */
+  ret = SBI_PENGLAI_4(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_ATTEST_ENCLAVE, attest_enclave->eid);
   /* todo. not finished yet. */
   return ret;
 }

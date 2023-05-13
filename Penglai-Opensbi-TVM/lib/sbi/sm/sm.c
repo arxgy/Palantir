@@ -1134,7 +1134,8 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
       ret = privil_create_enclave(regs, arg0);
       break;
     case OCALL_ATTEST_ENCLAVE:
-      ret = privil_attest_enclave(regs, arg0, arg1, arg2);
+      // the arg0 is the VA of attest_arg
+      ret = privil_attest_enclave(regs, arg0);
       break;
     case OCALL_RUN_ENCLAVE:
       ret = privil_run_enclave(regs, arg0, arg1);

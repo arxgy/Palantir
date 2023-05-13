@@ -213,5 +213,13 @@ typedef struct ocall_create_param
 
 } ocall_create_param_t;
 
+typedef struct ocall_attest_param
+{
+  int attest_eid; // idr
+  int current_eid;
+  int isShadow;
+  unsigned long nonce;
+  unsigned long report_ptr; // VA
+} ocall_attest_param_t;
 
 #endif

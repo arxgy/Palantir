@@ -15,6 +15,12 @@
         "err.h": "c",
         "stat.h": "c",
         "elf.h": "c",
-        "enclave_error.h": "c"
+        "enclave_error.h": "c",
+        "uaccess.h": "c",
+        "penglai-enclave-ocall.h": "c",
+        "privil.h": "c",
+        "string.h": "c",
+        "pe-param.h": "c",
+        "stdlib.h": "c"
     }
 }

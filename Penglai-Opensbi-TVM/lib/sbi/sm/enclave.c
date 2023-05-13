@@ -2309,6 +2309,76 @@ out:
 }
 
 /**
+ * \brief Perform attestation adn write result back to PE.
+ * 
+ * \param enclave The enclave structure.
+ * \param alloc_eid The attestee slab-layer eid
+ * 
+ * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
+ */
+uintptr_t privil_attest_after_resume(struct enclave_t *enclave, uintptr_t tgt_eid)
+{
+  uintptr_t retval = 0;
+  int attestable = 1;
+  struct report_t report;
+  ocall_attest_param_t attest_args;
+  struct enclave_t* tgt_enclave = NULL;
+  unsigned char attest_hash[HASH_SIZE];
+
+  sbi_printf("[sm] attestee eid: [%lu]\n", tgt_eid);
+  
+
+  sbi_memcpy(&attest_args, (void *)(enclave->kbuffer), sizeof(ocall_attest_param_t));
+  sbi_printf("[sm] report attest eid: [%d]\n", attest_args.attest_eid);
+  sbi_printf("[sm] report vaddr: [%lu]\n", attest_args.report_ptr);
+  sbi_printf("[sm] report nonce: [%lu]\n", attest_args.nonce);
+
+  tgt_enclave = __get_enclave(tgt_eid);
+  sbi_printf("[sm] target enclave parent eid: [%lu]\n", tgt_enclave->parent_eid);
+  sbi_printf("[sm] current enclave eid: [%u]\n", enclave->eid);
+
+  if (!tgt_enclave || (tgt_enclave->state != FRESH && tgt_enclave->state != STOPPED)
+      || tgt_enclave->parent_eid != enclave->eid)
+    attestable = 0;
+  
+  if (!attestable)
+  {
+    sbi_printf("M mode: privil_attest_after_resume: enclave%ld is not attestable\n", tgt_eid);
+    retval = -1UL;
+    goto out;
+  }
+  /* do attestation */
+  sbi_memcpy((void*)(report.dev_pub_key), (void*)DEV_PUB_KEY, PUBLIC_KEY_SIZE);
+  sbi_memcpy((void*)(report.sm.hash), (void*)SM_HASH, HASH_SIZE);
+  sbi_memcpy((void*)(report.sm.sm_pub_key), (void*)SM_PUB_KEY, PUBLIC_KEY_SIZE);
+  sbi_memcpy((void*)(report.sm.signature), (void*)SM_SIGNATURE, SIGNATURE_SIZE);
+  sbi_memcpy(attest_hash, (char *)enclave->hash, HASH_SIZE);
+    
+  update_enclave_hash((char *)(report.enclave.hash), attest_hash, attest_args.nonce);
+  sign_enclave((void*)(report.enclave.signature), (void*)(report.enclave.hash));
+  report.enclave.nonce = attest_args.nonce;
+
+  void *report_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(attest_args.report_ptr));
+  if (!report_ptr)
+  {
+    retval = -1UL;
+    sbi_bug("M mode: privil_attest_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
+    goto out;
+  }
+  sbi_memcpy(report_ptr, (void *)(&report), sizeof(struct report_t));
+
+  unsigned iter = 0, sum = 0;
+  for (iter = 0 ; iter < HASH_SIZE; iter++)
+  {
+    sbi_printf("%c", report.enclave.hash[iter]);
+    sum = sum + (int) (report.enclave.hash[iter]);
+  }
+  sbi_printf("\n[sm] privil_attest_after_resume attestation sum: [%u]\n", sum);
+out:
+  return retval;
+}
+
+/**
  * \brief Host use this fucntion to re-enter enclave world.
  * 
  * \param regs The host register context.
@@ -2367,6 +2437,9 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
       break;
     case OCALL_CREATE_ENCLAVE:
       retval = privil_create_after_resume(enclave, regs[13], regs[14]);
+      break;
+    case OCALL_ATTEST_ENCLAVE:
+      retval = privil_attest_after_resume(enclave, regs[13]);
       break;
     default:
       retval = 0;
@@ -3665,7 +3738,6 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   
   /* return to host with Ocall identity */
   swap_from_enclave_to_host(regs, enclave);
-  sbi_printf("turn [privil_create_enclave] to [sdk driver]\n");
   enclave->state = OCALLING;
   ret = ENCLAVE_OCALL;
 out:
@@ -3676,45 +3748,77 @@ out:
 /**
  * \brief This transitional function is used to attest the NE.
  * 
- * \param eid The enclave id.
- * \param report The enclave measurement report.
- * \param nouce The attestation nonce.
+ * \param regs The PE context
+ * \param enclave_attest_args attest param (VA)
+ * \param tgt_eid The target enclave id. (idr)
+ * \param report_ptr The enclave measurement report pointer from PE. (VA)
+ * \param nonce The attestation nonce.
  */
-uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t report_ptr, uintptr_t nonce) 
+uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args)
 {
+  sbi_printf("[sm] hello, I'm in privil_attest_enclave\n");
   /* sanity check: caller should be an active PE */
   uintptr_t ret = 0;
-//   struct enclave_t *enclave = NULL;
-//   if(check_in_enclave_world() < 0)
-//   {
-//     sbi_bug("M mode: privil_attest_enclave: CPU is not in the enclave mode\n");
-//     return -1UL;
-//   }
-//   /* todo: need update. */
-//   acquire_enclave_metadata_lock();
-//   enclave = __get_enclave(eid);
-//   if( !enclave || (enclave->state != FRESH && enclave->state != STOPPED) || 
-//       enclave->host_ptbr != csr_read(CSR_SATP) ||  
-//       enclave->type != PRIVIL_ENCLAVE)
-//   {
-//     attestable = 0;
-//   }
-//   else
-//   {
-//     old_state = enclave->state;
-//     enclave->state = ATTESTING;
-//   }
-//   release_enclave_metadata_lock();
+  struct enclave_t *enclave = NULL; // current running enclave, should be PE.
+  int eid = 0; 
+  unsigned remain_page_size;
+  // unsigned param_size = sizeof(enclave_create_param_t) + ELF_FILE_LEN;
+  unsigned param_size = sizeof(ocall_attest_param_t);
+  if(check_in_enclave_world() < 0)
+  {
+    sbi_bug("M mode: privil_attest_enclave: CPU is not in the enclave mode\n");
+    return -1UL;
+  }
 
-//   if(!attestable)
-//   {
-//     sbi_printf("M mode: privil_attest_enclave: enclave%ld is not attestable\n", eid);
-//     return -1UL;
-//   }
-//   /* do hash */
-  
-// out:
-//   release_enclave_metadata_lock();
+  acquire_enclave_metadata_lock();
+  /* slab-level eid */
+  eid = get_curr_enclave_id();
+  sbi_printf("[sm] get_curr_enclave_id: [%u]\n", eid);
+  enclave = __get_enclave(eid);
+  if( !enclave || 
+      check_enclave_authentication(enclave)!=0 || 
+      enclave->state != RUNNING || 
+      enclave->type != PRIVIL_ENCLAVE)
+  {
+    // early reject.
+    ret = -1UL;
+    sbi_bug("M mode: privil_attest_enclave: enclave%d can not be accessed!\n", eid);
+    goto out;
+  }
+
+  void *attest_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_attest_args);
+  if (!attest_args) 
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_attest_enclave: enclave_attest_args pointer is not valid\n");
+    goto out;
+  }
+  ((ocall_attest_param_t *)attest_args)->current_eid = get_curr_enclave_id();
+
+  /* Avoid same-VA-page but diff-PA-page situation. */
+  remain_page_size = PAGE_SIZE - (enclave_attest_args & (PAGE_SIZE-1));
+  if (param_size > remain_page_size) 
+  {
+    copy_to_host((void*)(enclave->kbuffer), attest_args, remain_page_size);
+    copy_to_host((void*)(enclave->kbuffer+remain_page_size), 
+                 va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(enclave_attest_args+remain_page_size)),
+                 param_size - remain_page_size);
+  } 
+  else 
+  {
+    copy_to_host((void*)(enclave->kbuffer), attest_args, param_size);
+  }
+
+  copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_ATTEST_ENCLAVE);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_attest_args);
+
+  swap_from_enclave_to_host(regs, enclave);
+  enclave->state = OCALLING;
+  ret = ENCLAVE_OCALL;
+
+out:
+  release_enclave_metadata_lock();
   return ret;
 }
 

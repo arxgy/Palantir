@@ -1,5 +1,5 @@
 runner
-hello-world
+pe-hello
 *.dump
 *.o
 *.S

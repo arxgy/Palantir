@@ -322,7 +322,7 @@ uintptr_t sm_shm_stat(uintptr_t* regs, uintptr_t key, uintptr_t shm_desp_user);
  * Ocall transition functions
 */
 uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args);
-uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t report_ptr, uintptr_t nonce);
+uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args);
 uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t enclave_run_param);
 uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t eid);
@@ -383,5 +383,14 @@ typedef struct ocall_create_param
   char elf_file_name [ELF_FILE_LEN];
 
 } ocall_create_param_t;
+
+typedef struct ocall_attest_param
+{
+  int attest_eid;
+  int current_eid;
+  int isShadow;
+  unsigned long nonce;
+  unsigned long report_ptr; // VA
+} ocall_attest_param_t;
 
 #endif /* _ENCLAVE_H */
