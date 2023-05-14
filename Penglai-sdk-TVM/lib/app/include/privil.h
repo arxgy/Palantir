@@ -4,30 +4,9 @@
 #define NAME_LEN        16
 #define ELF_FILE_LEN    256
 
-// #define PRIVATE_KEY_SIZE       32
-// #define PUBLIC_KEY_SIZE        64
-// #define HASH_SIZE              32
-// #define SIGNATURE_SIZE         64
-
-// struct sm_report_t
-// {
-//   unsigned char hash[HASH_SIZE];
-//   unsigned char signature[SIGNATURE_SIZE];
-//   unsigned char sm_pub_key[PUBLIC_KEY_SIZE];
-// };
-// struct enclave_report_t
-// {
-//   unsigned char hash[HASH_SIZE];
-//   unsigned char signature[SIGNATURE_SIZE];
-//   uintptr_t nonce;
-// };
-
-// struct report_t
-// {
-//   struct sm_report_t sm;
-//   struct enclave_report_t enclave;
-//   unsigned char dev_pub_key[PUBLIC_KEY_SIZE];
-// };
+#define RETURN_USER_EXIT_ENCL             0
+#define RETURN_USER_RELAY_PAGE            1
+#define RETURN_USER_NE_IRQ                2
 
 /* todo: host-level update */
 /* maybe conflict */
@@ -68,5 +47,11 @@ typedef struct ocall_attest_param
   unsigned long nonce;
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
+
+typedef struct ocall_run_param
+{
+  int run_eid;
+  unsigned long return_ptr;
+} ocall_run_param_t;
 
 #endif

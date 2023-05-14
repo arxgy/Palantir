@@ -323,7 +323,7 @@ uintptr_t sm_shm_stat(uintptr_t* regs, uintptr_t key, uintptr_t shm_desp_user);
 */
 uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args);
 uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args);
-uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t enclave_run_param);
+uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t enclave_run_args);
 uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
@@ -392,5 +392,11 @@ typedef struct ocall_attest_param
   unsigned long nonce;
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
+
+typedef struct ocall_run_param
+{
+  int run_eid;
+  unsigned long return_ptr;
+} ocall_run_param_t;
 
 #endif /* _ENCLAVE_H */

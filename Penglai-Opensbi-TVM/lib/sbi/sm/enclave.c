@@ -2312,7 +2312,7 @@ out:
  * \brief Perform attestation adn write result back to PE.
  * 
  * \param enclave The enclave structure.
- * \param alloc_eid The attestee slab-layer eid
+ * \param tgt_eid The attestee slab-layer eid
  * 
  * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
  */
@@ -2379,6 +2379,44 @@ out:
 }
 
 /**
+ * \brief Accept the reason of NE, resume its parent PE.
+ * 
+ * \param enclave The enclave structure.
+ * \param reason The reason why Normal Enclave stop/crash (IRQ, Relay Page, ...)
+ * 
+ * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
+ *          EXIT_ENCLAVE won't enter this function, instead, it will enter sm_exit_enclave().
+ */
+uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t reason)
+{
+  uintptr_t ret = 0;
+  int retval_reason = reason;
+  ocall_run_param_t run_args;
+  struct enclave_t *tgt_enclave = NULL;
+  sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
+  sbi_printf("[sm] run_args run_eid: [%d]\n", run_args.run_eid);
+  
+  tgt_enclave = __get_enclave(run_args.run_eid);
+  /* todo. add run-enclave state check here. */
+  if (!tgt_enclave || tgt_enclave->parent_eid != enclave->eid)
+  {
+    sbi_bug("M mode: privil_run_after_resume: enclave%d is not attestable\n", run_args.run_eid);
+    ret = -1UL;
+    // goto out;
+  }
+
+  void *retval_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.return_ptr));
+  if (!retval_ptr)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_attest_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
+  }
+  sbi_memcpy(retval_ptr, (void *)(&retval_reason), sizeof(int));
+  sbi_printf("[sm] return back to PE reason: %d\n", retval_reason);
+  return ret;
+}
+
+/**
  * \brief Host use this fucntion to re-enter enclave world.
  * 
  * \param regs The host register context.
@@ -2440,6 +2478,9 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
       break;
     case OCALL_ATTEST_ENCLAVE:
       retval = privil_attest_after_resume(enclave, regs[13]);
+      break;
+    case OCALL_RUN_ENCLAVE:
+      retval = privil_run_after_resume(enclave, regs[13]);
       break;
     default:
       retval = 0;
@@ -3677,7 +3718,6 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   struct enclave_t *enclave = NULL; // current running enclave, should be PE.
   int eid = 0; 
   unsigned remain_page_size;
-  // unsigned param_size = sizeof(enclave_create_param_t) + ELF_FILE_LEN;
   unsigned param_size = sizeof(ocall_create_param_t);
   if(check_in_enclave_world() < 0)
   {
@@ -3730,7 +3770,6 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_create_args);
 
-  // sbi_printf("[sm] address of enclave_create_args:[%lu]\n", enclave_create_args);
   sbi_printf("[sm] copy (uintptr_t)enclave_create_args to ocall_arg1:[%lu]\n", (uintptr_t)enclave_create_args);
   sbi_printf("[sm] ocall_arg1 address:[%p]\n", (uintptr_t*)enclave->ocall_arg1);
   sbi_printf("[sm] ocall_arg1 content:[%lu]\n", *(enclave->ocall_arg1));
@@ -3756,7 +3795,6 @@ out:
  */
 uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args)
 {
-  sbi_printf("[sm] hello, I'm in privil_attest_enclave\n");
   /* sanity check: caller should be an active PE */
   uintptr_t ret = 0;
   struct enclave_t *enclave = NULL; // current running enclave, should be PE.
@@ -3826,43 +3864,71 @@ out:
  * \brief This transitional function is used to enter the NE.
  * 
  * \param regs The regs context
- * \param eid   The enclave id
- * \param enclave_run_args The run parameter
+ * \param enclave_run_args The run parameter (VA)
  */
-uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t tgt_eid, uintptr_t enclave_run_param) 
+uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t enclave_run_args)
 {
   /* sanity check: caller should be an active PE */
   uintptr_t ret = 0;
-  // uintptr_t mmap_offset = 0;
-//   int cur_eid = 0;
-//   enclave_run_param_t enclave_sbi_param_local;
-//   struct enclave_t *cur_enclave = NULL;
-//   struct enclave_t *tgt_enclave = NULL;
-//   if(check_in_enclave_world() < 0)
-//   {
-//     sbi_bug("M mode: privil_run_enclave: CPU is not in the enclave mode\n");
-//     return -1UL;
-//   }
+  struct enclave_t *enclave = NULL; // current running enclave, should be PE.
+  int eid = 0; 
+  unsigned remain_page_size;
+  unsigned param_size = sizeof(ocall_run_param_t);
 
-//   acquire_enclave_metadata_lock();
-  
-//   cur_eid = get_curr_enclave_id();
-//   cur_enclave = __get_enclave(cur_eid);
-//   tgt_enclave = __get_enclave(tgt_eid);
+  if(check_in_enclave_world() < 0)
+  {
+    sbi_bug("M mode: privil_run_enclave: CPU is not in the enclave mode\n");
+    return -1UL;
+  }
 
-//   release_enclave_metadata_lock();
+  acquire_enclave_metadata_lock();
 
-//   if (!tgt_enclave || tgt_enclave->state != FRESH || tgt_enclave->type == SERVER_ENCLAVE || 
-//        tgt_enclave->parent_eid != cur_eid || cur_enclave->type != PRIVIL_ENCLAVE)
-//   {
-//     sbi_bug("M mode: privil_run_enclave: enclave%d can not be accessed!\n", eid);
-//     retval = -1UL;
-//     goto out;
-//   }
-//   /* Do run_enclave below */
+  /* slab-level eid */
+  eid = get_curr_enclave_id();
+  enclave = __get_enclave(eid);
+  if( !enclave || 
+      check_enclave_authentication(enclave)!=0 || 
+      enclave->state != RUNNING || 
+      enclave->type != PRIVIL_ENCLAVE)
+  {
+    // early reject.
+    ret = -1UL;
+    sbi_bug("M mode: privil_run_enclave: enclave%d can not be accessed!\n", eid);
+    goto out;
+  }
 
-// out:
-//   tlb_remote_sfence();
+  void *run_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_run_args);
+  if (!run_args)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_run_enclave: enclave_run_args pointer is not valid\n");
+    goto out;
+  }
+  /* pass the slab eid? */
+
+  /* Avoid same-VA-page but diff-PA-page situation. */
+  remain_page_size = PAGE_SIZE - (enclave_run_args & (PAGE_SIZE-1));
+  if (param_size > remain_page_size) 
+  {
+    copy_to_host((void*)(enclave->kbuffer), run_args, remain_page_size);
+    copy_to_host((void*)(enclave->kbuffer+remain_page_size), 
+                 va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(enclave_run_args+remain_page_size)),
+                 param_size - remain_page_size);
+  } 
+  else 
+  {
+    copy_to_host((void*)(enclave->kbuffer), run_args, param_size);
+  }
+  copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_RUN_ENCLAVE);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_run_args);
+
+  /* freeze PE, stay OCALLing */
+  swap_from_enclave_to_host(regs, enclave);
+  enclave->state = OCALLING;
+  ret = ENCLAVE_OCALL;
+out:
+  release_enclave_metadata_lock();
   return ret;
 }
 

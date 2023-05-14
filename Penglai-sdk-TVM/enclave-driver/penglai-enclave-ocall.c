@@ -153,11 +153,11 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   }
   ocall_create_param_t *ocall_create_param_local = (ocall_create_param_t *) (kbuf);
   
-  struct penglai_enclave_user_param enclave_param;
   // step 1. prepare
   //         - copy parameters
   //         - do sanity checks
   /* pass slab-level launched enclave eid */
+  struct penglai_enclave_user_param enclave_param;
   enclave_param.eid = ocall_create_param_local->eid;
   /* the elf_ptr and elf_size won't be used in PE create */
   enclave_param.elf_ptr = ocall_create_param_local->elf_file_ptr;
@@ -198,21 +198,19 @@ int handle_ocall_attest_enclave(enclave_instance_t *enclave_instance, enclave_t 
   int ret = 0;
   void *kbuf;
   enclave_t *attest_enclave = NULL;
-  unsigned long resume_arg_addr;
   // TODO: check ocall_arg0 is NULL or not.
   if (isShadow) 
   {
     // TODO.
     kbuf = (void *) __va(enclave_instance->ocall_arg0);
-    resume_arg_addr = enclave_instance->ocall_arg1;
   } 
   else 
   {
     kbuf = (void *) __va(enclave->ocall_arg0);
-    resume_arg_addr = enclave->ocall_arg1;
   }
-  /** step 1. get the slab-layer eid by idr-layer eid. 
-   *  Since we cannot acquire idr-layer eid in SM, we jump to driver to handle this.
+  /** 
+   * step 1. get the slab-layer eid by idr-layer eid. 
+   * Since we cannot acquire idr-layer eid in SM, we jump to driver to handle this.
    */
   ocall_attest_param_t *ocall_attest_param_local = (ocall_attest_param_t *)(kbuf);
   penglai_printf("[sdk driver] attestee idr eid: [%d]\n", ocall_attest_param_local->attest_eid);
@@ -233,8 +231,46 @@ int handle_ocall_attest_enclave(enclave_instance_t *enclave_instance, enclave_t 
 
 int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
-  int ret;
-  /* todo. not finished yet. */
+  int ret = 0, reason = 0;
+  void *kbuf;
+  enclave_t *run_enclave = NULL;
+ // TODO: check ocall_arg0 is NULL or not.
+  if (isShadow) 
+  {
+    // TODO.
+    kbuf = (void *) __va(enclave_instance->ocall_arg0);
+  } 
+  else 
+  {
+    kbuf = (void *) __va(enclave->ocall_arg0);
+  }
+  ocall_run_param_t *ocall_run_param_local = (ocall_run_param_t *) (kbuf);
+  run_enclave = get_enclave_by_id(ocall_run_param_local->run_eid);
+  penglai_printf("[sdk driver] received run_eid (idr) [%d]\n", ocall_run_param_local->run_eid);
+  penglai_printf("[sdk driver] target run_eid (slab) [%d]\n", run_enclave->eid);
+  ocall_run_param_local->run_eid = run_enclave->eid;
+  /**
+   * step 1. prepare 
+   *          - copy parameters & get eid
+   *          - do sanity checks
+  */
+
+  // struct penglai_enclave_user_param enclave_param;
+  
+  /**
+   * step 2. run NE (in THE LOOP)
+   *         return: when IRQ / EXIT
+  */
+  
+  // ret = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
+
+  /** step 3. return to PE
+   *          return with reason (IRQ / RELAY PAGE?)
+  */
+  penglai_printf("[sdk driver] reason: [%d]\n", reason);
+
+  ret = SBI_PENGLAI_4(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RUN_ENCLAVE, reason); 
+  
   return ret;
 }
 

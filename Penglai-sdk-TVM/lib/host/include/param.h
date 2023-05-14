@@ -222,4 +222,10 @@ typedef struct ocall_attest_param
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
 
+typedef struct ocall_run_param
+{
+  int run_eid;
+  int return_reason;
+} ocall_run_param_t;
+
 #endif

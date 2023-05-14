@@ -671,6 +671,12 @@ resume_for_rerun:
     return ret;
 }
 
+/* a level of wrapper function */
+int penglai_enclave_ocall_run(unsigned long args)
+{
+  return penglai_enclave_run(NULL, args);
+}
+
 int penglai_enclave_attest(struct file * filep, unsigned long args)
 {
   struct penglai_enclave_attest_param *attest_param = (struct penglai_enclave_attest_param*) args;
