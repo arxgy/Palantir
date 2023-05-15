@@ -181,6 +181,12 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   }
   penglai_printf("[sdk driver] slab-level launcher enclave eid: [%u]\n", ocall_create_param_local->eid);
   penglai_printf("[sdk driver] idr-level launchee enclave eid: [%lu]\n", enclave_param.eid);
+  enclave_t *launchee = get_enclave_by_id(enclave_param.eid);
+  if (launchee != NULL)
+  {
+    penglai_printf("[sdk driver] slab-level launchee enclave eid: [%lu]\n", launchee->eid);
+
+  }
   penglai_printf("[sdk driver] address of enclave->ocall_arg1: [%p]\n", (void *)&(enclave->ocall_arg1));
   penglai_printf("[sdk driver] content of enclave->ocall_arg1: [%lu]\n", enclave->ocall_arg1);
   penglai_printf("[sdk driver] content of resume_arg_addr: [%lu]\n", resume_arg_addr);
@@ -273,7 +279,8 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
   }
   return_value = enclave_param.retval;
 
-  /** step 3. return to PE
+  /** 
+   * step 3. return to PE
    *          return with reason (IRQ / EXIT / ...)
   */
   penglai_printf("[sdk driver] return_reason: [%d]\n", return_reason);
@@ -292,7 +299,6 @@ int handle_ocall_stop_enclave(enclave_instance_t *enclave_instance, enclave_t *e
 
 int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
-  /* todo. not finished yet. */
   int ret = 0;
   /* the NE's return reason and value */
   int return_reason = 0, return_value = 0;
@@ -368,8 +374,45 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
 
 int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
-  int ret;
   /* todo. not finished yet. */
+  int ret = 0;
+  unsigned long tgt_eid = 0;
+  enclave_t *destroy_enclave = NULL;
+  if (isShadow)
+  {
+    tgt_eid = enclave_instance->ocall_arg0;
+  }
+  else 
+  {
+    tgt_eid = enclave->ocall_arg0;
+  }
+  /**
+   * step 1. prepare
+   *         - do sanity checks
+  */
+  destroy_enclave = get_enclave_by_id(tgt_eid);
+  if (destroy_enclave == NULL)
+  {
+    penglai_eprintf("[sdk driver] invalid enclave target: [%d] (slab)\n", tgt_eid);
+  }
+  penglai_printf("[sdk driver] target destroy enclave eid [idr] is: [%lu]\n", tgt_eid);
+  penglai_printf("[sdk driver] target destroy enclave eid [slab] is: [%lu]\n", destroy_enclave->eid);
+
+  struct penglai_enclave_user_param enclave_param;
+  enclave_param.eid = tgt_eid;
+  enclave_param.isShadow = 0;
+  /**
+   * step 2. destroy NE 
+  */
+  ret = penglai_enclave_ocall_destroy((unsigned long)(&enclave_param));
+  if (ret < 0)
+  {
+    penglai_eprintf("[sdk driver] penglai_enclave_ocall_destroy failed with retval [%d]\n", ret);
+  }
+  /**
+   * step 3. return to PE
+  */
+  ret = SBI_PENGLAI_3(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_DESTROY_ENCLAVE);
   return ret;
 }
 

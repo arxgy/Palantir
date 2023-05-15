@@ -48,6 +48,7 @@ typedef struct ocall_attest_param
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
 
+/* used in RUN & RESUME */
 typedef struct ocall_run_param
 {
   int run_eid;

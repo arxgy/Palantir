@@ -191,7 +191,7 @@ struct enclave_t
   unsigned int cur_callee_eid;
   unsigned char hash[HASH_SIZE];
   char enclave_name[NAME_LEN];
-  // TODO: add our metadata here.
+  /* add our metadata here. */
   unsigned long parent_eid;
   struct link_mem_t *children_metadata_head;
   struct link_mem_t *children_metadata_tail;

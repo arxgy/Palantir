@@ -406,6 +406,11 @@ int penglai_enclave_destroy(struct file * filep, unsigned long args)
   return ret;
 }
 
+int penglai_enclave_ocall_destroy(unsigned long args)
+{
+  return penglai_enclave_destroy(NULL, args);
+}
+
 int penglai_enclave_rerun(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
   unsigned int ocall_func_id;
@@ -803,11 +808,6 @@ int penglai_enclave_resume(struct file * filep, unsigned long args)
     }
     spin_unlock(&enclave_create_lock);
     return -EFAULT;
-}
-
-int penglai_enclave_ocall_resume(unsigned long args)
-{
-  return penglai_enclave_resume(NULL, args);
 }
 
 long penglai_enclave_ioctl(struct file* filep, unsigned int cmd, unsigned long args)
