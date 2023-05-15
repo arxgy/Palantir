@@ -61,7 +61,6 @@ int handle_ocall_sys_write(enclave_instance_t *enclave_instance, enclave_t *encl
     printk((void*)(enclave->kbuffer));
   }
   ret = SBI_PENGLAI_3(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_SYS_WRITE);
-  printk("[sdk driver] I'm back!\n");
   return ret;
 }
 
@@ -244,31 +243,37 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
   {
     kbuf = (void *) __va(enclave->ocall_arg0);
   }
-  ocall_run_param_t *ocall_run_param_local = (ocall_run_param_t *) (kbuf);
-  run_enclave = get_enclave_by_id(ocall_run_param_local->run_eid);
-  penglai_printf("[sdk driver] received run_eid (idr) [%d]\n", ocall_run_param_local->run_eid);
-  penglai_printf("[sdk driver] target run_eid (slab) [%d]\n", run_enclave->eid);
-  ocall_run_param_local->run_eid = run_enclave->eid;
   /**
    * step 1. prepare 
    *          - copy parameters & get eid
    *          - do sanity checks
   */
+  ocall_run_param_t *ocall_run_param_local = (ocall_run_param_t *) (kbuf);
+  run_enclave = get_enclave_by_id(ocall_run_param_local->run_eid);
+  penglai_printf("[sdk driver] received run_eid (idr) [%d]\n", ocall_run_param_local->run_eid);
+  penglai_printf("[sdk driver] target run_eid (slab) [%d]\n", run_enclave->eid);
 
-  // struct penglai_enclave_user_param enclave_param;
-  
+  struct penglai_enclave_user_param enclave_param;
+  enclave_param.eid = ocall_run_param_local->run_eid;
+  enclave_param.isShadow = 0;
+  enclave_param.rerun_reason = 0; // todo. support relay page.
+  /* update eid in kbuffer from idr-layer to slab-layer */
+  ocall_run_param_local->run_eid = run_enclave->eid;
   /**
    * step 2. run NE (in THE LOOP)
    *         return: when IRQ / EXIT
+   * \details call our customized function
   */
-  
-  // ret = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
+  reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
+  if (reason < 0)
+  {
+    penglai_eprintf("[sdk driver] penglai_enclave_ocall_run failed with retval [%d]\n", ret);
+  }
 
   /** step 3. return to PE
    *          return with reason (IRQ / RELAY PAGE?)
   */
   penglai_printf("[sdk driver] reason: [%d]\n", reason);
-
   ret = SBI_PENGLAI_4(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RUN_ENCLAVE, reason); 
   
   return ret;

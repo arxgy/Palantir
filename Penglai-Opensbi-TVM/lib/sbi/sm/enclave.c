@@ -1787,14 +1787,19 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
   /** We bind a host process (host_ptbr) during run_enclave, which will be checked during resume */
   enclave->host_ptbr = csr_read(CSR_SATP);
   
-  if((retval =map_relay_page(eid, mm_arg_addr, mm_arg_size, &mmap_offset, enclave, relay_page_entry)) != 0)
+  if (enclave->parent_eid == NULL_EID)
   {
-    if (retval == ENCLAVE_NO_MEM)
-      goto run_enclave_out;
-    else
-      goto run_enclave_out;
+    if((retval =map_relay_page(eid, mm_arg_addr, mm_arg_size, &mmap_offset, enclave, relay_page_entry)) != 0)
+    {
+      if (retval == ENCLAVE_NO_MEM)
+        goto run_enclave_out;
+      else
+        goto run_enclave_out;
+    }
+    //the relay page is transfered from another enclave
   }
-  //the relay page is transfered from another enclave
+
+
 
   if(swap_from_host_to_enclave(regs, enclave) < 0)
   {

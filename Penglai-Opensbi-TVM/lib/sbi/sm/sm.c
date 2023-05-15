@@ -1066,7 +1066,6 @@ uintptr_t sm_exit_enclave(uintptr_t* regs, uintptr_t retval)
   uintptr_t ret = 0;
 
   ret = exit_enclave(regs, retval);
-  sbi_printf("[sm] out of exit_enclave\n");
   return ret;
 }
 

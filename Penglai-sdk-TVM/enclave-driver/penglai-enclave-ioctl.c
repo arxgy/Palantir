@@ -567,47 +567,68 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
     }
   }
 
-  //if schrodinger is not zero but size remains zero, it means relay page is transferred from other enclave
-  if((enclave_param->schrodinger_id > 0) && (enclave_param->schrodinger_size == 0))
-    schrodinger_vaddr = DEFAULT_MAGIC_NUMBER; //magic number just set address is not zero, so the monitor will know relay page is transferred from other enclave
-  else
-    schrodinger_vaddr = get_schrodinger(enclave_param->schrodinger_id, enclave_param->schrodinger_offset, enclave_param->schrodinger_size);
-  schrodinger_size = enclave_param->schrodinger_size;
+  if (filep != NULL)
+  {
+    //if schrodinger is not zero but size remains zero, it means relay page is transferred from other enclave
+    if((enclave_param->schrodinger_id > 0) && (enclave_param->schrodinger_size == 0))
+      schrodinger_vaddr = DEFAULT_MAGIC_NUMBER; //magic number just set address is not zero, so the monitor will know relay page is transferred from other enclave
+    else
+      schrodinger_vaddr = get_schrodinger(enclave_param->schrodinger_id, enclave_param->schrodinger_offset, enclave_param->schrodinger_size);
+    schrodinger_size = enclave_param->schrodinger_size;
 
-  if(enclave && enclave->type == SHADOW_ENCLAVE)
-  {
-    ret = penglai_instantiate_enclave_instance(&enclave_instance, enclave, enclave_param, schrodinger_vaddr,
-                                        schrodinger_size, &enclave_instance_eid, &resume_id);
-    if ((ret == DEFAULT_FREE_ENCLAVE) || (ret == DEFAULT_DESTROY_ENCLAVE))
+    if(enclave && enclave->type == SHADOW_ENCLAVE)
     {
-      ret = -1;
-      need_destroy = 1;
-      goto free_enclave;
+      ret = penglai_instantiate_enclave_instance(&enclave_instance, enclave, enclave_param, schrodinger_vaddr,
+                                          schrodinger_size, &enclave_instance_eid, &resume_id);
+      if ((ret == DEFAULT_FREE_ENCLAVE) || (ret == DEFAULT_DESTROY_ENCLAVE))
+      {
+        ret = -1;
+        need_destroy = 1;
+        goto free_enclave;
+      }
+      // This enclave is fork by a shadow enclave
+      // Change the eid to the real enclave id
+      enclave_param->eid = enclave_instance_eid;
+      enclave_param->isShadow = 1;
     }
-    // This enclave is fork by a shadow enclave
-    // Change the eid to the real enclave id
-    enclave_param->eid = enclave_instance_eid;
-    enclave_param->isShadow = 1;
-  }
-  else
+    else
+    {
+      uintptr_t schrodinger_paddr = 0;
+      satp = enclave->satp;
+      if(schrodinger_vaddr && schrodinger_size)
+        schrodinger_paddr = __pa(schrodinger_vaddr);
+      if(schrodinger_vaddr && !schrodinger_size)
+        schrodinger_paddr = DEFAULT_MAGIC_NUMBER; //magic number
+      enclave_run_sbi_param.mm_arg_addr = schrodinger_paddr;
+      enclave_run_sbi_param.mm_arg_size = schrodinger_size;
+      ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
+      while(ret == ENCLAVE_NO_MEM)
+      {
+        if ((ret = penglai_extend_secure_memory()) < 0)
+              return ret;
+        ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
+      }
+      resume_id = enclave->eid;
+    }
+  } 
+  else 
   {
-    uintptr_t schrodinger_paddr = 0;
+    /* our NE might support Relay Page later. */
     satp = enclave->satp;
-    if(schrodinger_vaddr && schrodinger_size)
-      schrodinger_paddr = __pa(schrodinger_vaddr);
-    if(schrodinger_vaddr && !schrodinger_size)
-      schrodinger_paddr = DEFAULT_MAGIC_NUMBER; //magic number
-    enclave_run_sbi_param.mm_arg_addr = schrodinger_paddr;
-    enclave_run_sbi_param.mm_arg_size = schrodinger_size;
+    enclave_run_sbi_param.mm_arg_addr = DEFAULT_MAGIC_NUMBER;
+    enclave_run_sbi_param.mm_arg_size = 0;
     ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
-    while(ret == ENCLAVE_NO_MEM)
+    while (ret == ENCLAVE_NO_MEM)
     {
       if ((ret = penglai_extend_secure_memory()) < 0)
-            return ret;
+        return ret;
       ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
     }
     resume_id = enclave->eid;
-  }
+    penglai_printf("[sdk driver] NEs resume_id: [%lu]\n", resume_id);
+    /* currently we don't support IRQ scheduling. */
+    // return 0;
+  } 
   
   //handler the ocall from enclave;
 resume_for_rerun:
@@ -615,6 +636,7 @@ resume_for_rerun:
   {
     if (ret == ENCLAVE_TIMER_IRQ)
     {
+      printk("[sdk driver] [ENCLAVE_TIMER_IRQ]\n");
       //FIXME: no we call yield every time there is a time interrupt
       yield();
       ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
