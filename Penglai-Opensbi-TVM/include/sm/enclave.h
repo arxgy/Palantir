@@ -325,7 +325,7 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args);
 uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args);
 uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t enclave_run_args);
 uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
-uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t eid);
+uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args);
 uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
 
 // IPI
@@ -396,6 +396,7 @@ typedef struct ocall_attest_param
 typedef struct ocall_run_param
 {
   int run_eid;
+  int resume_reason;  // let sdk read (RDONLY), sync with *reason_ptr.
   unsigned long reason_ptr;
   unsigned long retval_ptr;
 } ocall_run_param_t;

@@ -269,12 +269,12 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
   return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
   if (return_reason < 0)
   {
-    penglai_eprintf("[sdk driver] penglai_enclave_ocall_run failed with retval [%d]\n", ret);
+    penglai_eprintf("[sdk driver] penglai_enclave_ocall_run failed with return_reason [%d]\n", return_reason);
   }
   return_value = enclave_param.retval;
 
   /** step 3. return to PE
-   *          return with reason (IRQ / RELAY PAGE?)
+   *          return with reason (IRQ / EXIT / ...)
   */
   penglai_printf("[sdk driver] return_reason: [%d]\n", return_reason);
   penglai_printf("[sdk driver] return_value: [%d]\n", return_value);
@@ -292,8 +292,77 @@ int handle_ocall_stop_enclave(enclave_instance_t *enclave_instance, enclave_t *e
 
 int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
-  int ret;
   /* todo. not finished yet. */
+  int ret = 0;
+  /* the NE's return reason and value */
+  int return_reason = 0, return_value = 0;
+  void *kbuf;
+  enclave_t *resume_enclave = NULL;
+ // TODO: check ocall_arg0 is NULL or not.
+  if (isShadow) 
+  {
+    // TODO.
+    kbuf = (void *) __va(enclave_instance->ocall_arg0);
+  } 
+  else 
+  {
+    kbuf = (void *) __va(enclave->ocall_arg0);
+  }
+
+  /**
+   * step 1. prepare 
+   *          - copy parameters & get eid
+   *          - do sanity checks
+  */
+  ocall_run_param_t *ocall_resume_param_local = (ocall_run_param_t *) (kbuf);
+  resume_enclave = get_enclave_by_id(ocall_resume_param_local->run_eid);
+  penglai_printf("[sdk driver] received resume_eid (idr) [%d]\n", ocall_resume_param_local->run_eid);
+  penglai_printf("[sdk driver] target resume_eid (slab) [%d]\n", resume_enclave->eid);
+  penglai_printf("[sdk driver] target enclave resume reason: [%d]\n", ocall_resume_param_local->resume_reason);
+
+  struct penglai_enclave_user_param enclave_param;
+  enclave_param.eid = ocall_resume_param_local->run_eid;
+  enclave_param.isShadow = 0;
+  enclave_param.rerun_reason = ocall_resume_param_local->resume_reason;
+  /* update eid in kbuffer from idr-layer to slab-layer */
+  ocall_resume_param_local->run_eid = resume_enclave->eid;
+  /**
+   * step 2. resume NE (in THE LOOP)
+   *         return: when IRQ / EXIT
+   * \note Different from host-level resume, which converts enclave state from [STOPPED] to [RUNNABLE],
+   *       we give a more customized design.
+   *       For PE, it can manually control enclave's IRQ by [RETURN_USER_NE_IRQ], whichs convert enclave state
+   *       from [RUNNABLE] to [RUNNING] (re-enter its NE children).
+   *       For other possible resume_reason values, we will add them in future work.
+   *  by Ganxiang Yang @ May 15, 2023.
+  */
+  switch (ocall_resume_param_local->resume_reason)
+  {
+    case RETURN_USER_NE_IRQ:
+      return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
+      if (return_reason < 0)
+      {
+        penglai_eprintf("[sdk driver] penglai_enclave_ocall_run[resume] failed with return_reason [%d]\n", return_reason);
+      }
+      return_value = enclave_param.retval;
+      break;
+    case RETURN_USER_EXIT_ENCL:
+      return_reason = -1;
+      penglai_eprintf("[sdk driver] The enclave has exited, cannot resume\n");
+      break;
+    default:
+      return_reason = -1;
+      penglai_eprintf("[sdk driver] bad resume reason: [%d]", ocall_resume_param_local->resume_reason);
+      break;
+  }
+
+  /**
+   * step 3. return to PE
+   *          return with reason (IRQ / EXIT / ...)
+  */
+  penglai_printf("[sdk driver] return_reason: [%d]\n", return_reason);
+  penglai_printf("[sdk driver] return_value: [%d]\n", return_value);
+  ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RESUME_ENCLAVE, return_reason, return_value); 
   return ret;
 }
 

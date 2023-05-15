@@ -2392,7 +2392,7 @@ out:
  * 
  * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
  *          EXIT_ENCLAVE won't enter this function, instead, it will enter sm_exit_enclave().
- * \details return_value is valid if and only if return_reason == RETURN_USER_EXIT_ENCL (0)
+ * \details return_value is valid/useful if and only if return_reason == RETURN_USER_EXIT_ENCL (0)
  */
 uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_reason, uintptr_t return_value)
 {
@@ -2408,7 +2408,7 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   /* todo. add run-enclave state check here. */
   if (!tgt_enclave || tgt_enclave->parent_eid != enclave->eid)
   {
-    sbi_bug("M mode: privil_run_after_resume: enclave%d is not attestable\n", run_args.run_eid);
+    sbi_bug("M mode: privil_run_after_resume: enclave%d is not valid\n", run_args.run_eid);
     ret = -1UL;
     // goto out;
   }
@@ -2429,6 +2429,56 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   }
   sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
   
+  sbi_printf("[sm] return back to PE reason: %d\n", return_reason_int);
+  sbi_printf("[sm] return back to PE value: %d\n", return_value_int);
+  return ret;
+}
+
+/**
+ * \brief Accept the reason of NE, resume its parent PE.
+ * 
+ * \param enclave The enclave structure.
+ * \param return_reason The reason why Normal Enclave stop/crash (IRQ, Relay Page, ...)
+ * \param return_value The NE process's return value.
+ * 
+ * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
+ *          EXIT_ENCLAVE won't enter this function, instead, it will enter sm_exit_enclave().
+ * \details return_value is valid/useful if and only if return_reason == RETURN_USER_EXIT_ENCL (0)
+ */
+uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return_reason, uintptr_t return_value)
+{
+  uintptr_t ret = 0;
+  int return_reason_int = return_reason;
+  int return_value_int = return_value;
+  ocall_run_param_t run_args;
+  struct enclave_t *tgt_enclave = NULL;
+  sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
+  sbi_printf("[sm] run_args run_eid: [%d]\n", run_args.run_eid);
+
+  tgt_enclave = __get_enclave(run_args.run_eid);
+  /* todo. add resume-enclave state check here. */
+  if (!tgt_enclave || tgt_enclave->parent_eid != enclave->eid)
+  {
+    sbi_bug("M mode: privil_run_after_resume: enclave%d is not valid\n", run_args.run_eid);
+    ret = -1UL;
+  }
+
+  void *reason_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.reason_ptr));
+  if (!reason_ptr)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_attest_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
+  }
+  sbi_memcpy(reason_ptr, (void *)(&return_reason_int), sizeof(int));
+
+  void *retval_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.retval_ptr));
+  if (!retval_ptr)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_attest_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
+  }
+  sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
+
   sbi_printf("[sm] return back to PE reason: %d\n", return_reason_int);
   sbi_printf("[sm] return back to PE value: %d\n", return_value_int);
   return ret;
@@ -2499,6 +2549,9 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
       break;
     case OCALL_RUN_ENCLAVE:
       retval = privil_run_after_resume(enclave, regs[13], regs[14]);
+      break;
+    case OCALL_RESUME_ENCLAVE:
+      retval = privil_resume_after_resume(enclave, regs[13], regs[14]);
       break;
     default:
       retval = 0;
@@ -4023,68 +4076,69 @@ uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid)
  * \brief This transitional function is used to resume the NE.
  * 
  * \param regs The regs context
- * \param eid   The enclave id
+ * \param enclave_resume_args   The resume parameter (VA)
  */
-uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t eid)
+uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args)
 {
+  /* sanity check: caller should be an active PE */
   uintptr_t ret = 0;
-  // uintptr_t cur_eid = 0;
+  struct enclave_t *enclave = NULL; // current running enclave, should be PE.
+  int eid = 0; 
+  unsigned remain_page_size;
+  unsigned param_size = sizeof(ocall_run_param_t);
 
-//   struct enclave_t* cur_enclave = NULL;
-//   struct enclave_t* tgt_enclave = NULL;
+  if(check_in_enclave_world() < 0)
+  {
+    sbi_bug("M mode: privil_resume_enclave: CPU is not in the enclave mode\n");
+    return -1UL;
+  }
+  acquire_enclave_metadata_lock();
 
-//   acquire_enclave_metadata_lock();
-//   cur_eid = get_curr_enclave_id();
-//   cur_enclave = __get_enclave(cur_eid);
-//   tgt_enclave = __get_real_enclave(eid);
+  /* slab-level eid */
+  eid = get_curr_enclave_id();
+  enclave = __get_enclave(eid);
+  if( !enclave || 
+      check_enclave_authentication(enclave)!=0 || 
+      enclave->state != RUNNING || 
+      enclave->type != PRIVIL_ENCLAVE)
+  {
+    // early reject.
+    ret = -1UL;
+    sbi_bug("M mode: privil_resume_enclave: enclave%d can not be accessed!\n", eid);
+    goto out;
+  }
 
-//   if(!tgt_enclave || (tgt_enclave->state <= INVALID))
-//   {
-//     sbi_printf("M mode: privil_resume_enclave: enclave%d is not existed\n", eid);
-//     ret = 0UL;
-//     goto out;
-//   }
-  
-//   if(tgt_enclave->parent_eid != cur_eid || cur_enclave->type != PRIVIL_ENCLAVE)
-//   {
-//     sbi_printf("M mode: privil_resume_enclave: enclave%d cannot be accessed\n", eid);
-//     ret = 0UL;
-//     goto out;
-//   }
+  void *resume_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_resume_args);
+  if (!resume_args)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_resume_enclave: enclave_resume_args pointer is not valid\n");
+    goto out;
+  }
 
-//   if(tgt_enclave->state <= FRESH || tgt_enclave->host_ptbr != csr_read(CSR_SATP))
-//   {
-//     sbi_bug("M mode: privil_resume_enclave: enclave%d cannot resume state %d\n", eid, tgt_enclave->state);
-//     ret = -1UL;
-//     goto out;
-//   }
+  /* Avoid same-VA-page but diff-PA-page situation. */
+  remain_page_size = PAGE_SIZE - (enclave_resume_args & (PAGE_SIZE-1));
+  if (param_size > remain_page_size) 
+  {
+    copy_to_host((void*)(enclave->kbuffer), resume_args, remain_page_size);
+    copy_to_host((void*)(enclave->kbuffer+remain_page_size), 
+                 va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(enclave_resume_args+remain_page_size)),
+                 param_size - remain_page_size);
+  } 
+  else 
+  {
+    copy_to_host((void*)(enclave->kbuffer), resume_args, param_size);
+  }
+  copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_RESUME_ENCLAVE);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_resume_args);
 
-//   if(tgt_enclave->state == STOPPED)
-//   {
-//     sbi_printf("[sm] privil_resume_enclave: enclave%d is stopped\n", eid);
-//     ret = ENCLAVE_TIMER_IRQ;
-//     goto out;
-//   }
-
-//   if(tgt_enclave->state != RUNNABLE)
-//   {
-//     sbi_bug("M mode: privil_resume_enclave: enclave%d is not runnable\n", eid);
-//     ret = -1UL;
-//     goto out;
-//   }
-
-//   if(swap_from_host_to_enclave(regs, tgt_enclave) < 0)
-//   {
-//     sbi_bug("M mode: privil_resume_enclave: enclave can not be resume\n");
-//     ret = -1UL;
-//     goto out;
-//   }
-//   enclave->state = RUNNING;
-//   // regs[10] will be set to ret when mcall_trap return, so we have to
-//   // set ret to be regs[10] here to succuessfully restore context
-//   ret = regs[10];
-// out:
-//   release_enclave_metadata_lock();
+  /* freeze PE, stay OCALLing */
+  swap_from_enclave_to_host(regs, enclave);
+  enclave->state = OCALLING;
+  ret = ENCLAVE_OCALL;
+out:
+  release_enclave_metadata_lock();
   return ret;
 }
 

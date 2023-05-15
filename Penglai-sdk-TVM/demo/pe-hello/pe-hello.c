@@ -91,6 +91,7 @@ int hello(unsigned long * args)
     eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
     eapp_print("[pe] try resume NE [%d]\n", run_param.run_eid);
     /* we reuse the [return reason] as [resume reason] */
+    run_param.resume_reason = return_reason;
     retval = eapp_resume_enclave((unsigned long)(&run_param));
   }
 

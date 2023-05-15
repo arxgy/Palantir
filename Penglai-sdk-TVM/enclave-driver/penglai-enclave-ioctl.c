@@ -548,11 +548,15 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
       case RETURN_USER_RELAY_PAGE:
         ret = ENCLAVE_RETURN_MONITOR_MODE;
         break;
+      case RETURN_USER_NE_IRQ:
+        ret = ENCLAVE_TIMER_IRQ;
+        goto resume_ne_for_rerun;
+        break;
       default:
         ret = -1;
         penglai_eprintf("penglai_enclave_run: rerun reason is error %d\n", enclave_param->rerun_reason);
     }
-    penglai_printf("[sdk driver] goto resume_for_rerun;\n");
+    penglai_printf("[sdk driver] goto resume_for_rerun with reason [%d];\n", enclave_param->rerun_reason);
     goto resume_for_rerun;
   }
   // First time to run enclave
@@ -633,28 +637,24 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
 resume_for_rerun:
   while((ret == ENCLAVE_TIMER_IRQ) || (ret == ENCLAVE_OCALL) || (ret == ENCLAVE_RETURN_MONITOR_MODE))
   {
-    // if (ret == ENCLAVE_TIMER_IRQ)
-    // {
-    //   //FIXME: no we call yield every time there is a time interrupt
-    //   yield();
-    //   if (filep != NULL)
-    //   {
-    //     ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
-    //   }
-    //   else 
-    //   {
-    //     printk("[sdk driver] NE recv [ENCLAVE_TIMER_IRQ]\n");
-    //     /* to yield or not to yield, this is a question. */
-    //     ret = RETURN_USER_NE_IRQ;
-    //     break;
-    //   }
-    // }
     if (ret == ENCLAVE_TIMER_IRQ)
     {
-      printk("[sdk driver] [ENCLAVE_TIMER_IRQ]\n");
       //FIXME: no we call yield every time there is a time interrupt
       yield();
-      ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
+      if (filep != NULL)
+      {
+        ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
+      }
+      else 
+      {
+        printk("[sdk driver] hang NE for [ENCLAVE_TIMER_IRQ]\n");
+        ret = RETURN_USER_NE_IRQ;
+        /* transfer the control to PE */
+        break;
+      resume_ne_for_rerun:
+        printk("[sdk driver] resume NE from [ENCLAVE_TIMER_IRQ]\n");
+        ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
+      }
     }
     else if(ret == ENCLAVE_RETURN_MONITOR_MODE)
     {

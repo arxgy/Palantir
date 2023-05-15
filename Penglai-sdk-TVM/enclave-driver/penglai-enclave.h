@@ -194,6 +194,7 @@ typedef struct ocall_attest_param
 typedef struct ocall_run_param
 {
   int run_eid;
+  int resume_reason;  // let sdk read (RDONLY), sync with *reason_ptr.
   unsigned long reason_ptr;
   unsigned long retval_ptr;
 } ocall_run_param_t;
