@@ -2387,15 +2387,18 @@ out:
  * \brief Accept the reason of NE, resume its parent PE.
  * 
  * \param enclave The enclave structure.
- * \param reason The reason why Normal Enclave stop/crash (IRQ, Relay Page, ...)
+ * \param return_reason The reason why Normal Enclave stop/crash (IRQ, Relay Page, ...)
+ * \param return_value The NE process's return value.
  * 
  * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
  *          EXIT_ENCLAVE won't enter this function, instead, it will enter sm_exit_enclave().
+ * \details return_value is valid if and only if return_reason == RETURN_USER_EXIT_ENCL (0)
  */
-uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t reason)
+uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_reason, uintptr_t return_value)
 {
   uintptr_t ret = 0;
-  int retval_reason = reason;
+  int return_reason_int = return_reason;
+  int return_value_int = return_value;
   ocall_run_param_t run_args;
   struct enclave_t *tgt_enclave = NULL;
   sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
@@ -2410,14 +2413,24 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t reason)
     // goto out;
   }
 
-  void *retval_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.return_ptr));
+  void *reason_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.reason_ptr));
+  if (!reason_ptr)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_attest_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
+  }
+  sbi_memcpy(reason_ptr, (void *)(&return_reason_int), sizeof(int));
+
+  void *retval_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.retval_ptr));
   if (!retval_ptr)
   {
     ret = -1UL;
     sbi_bug("M mode: privil_attest_after_resume: enclave%d PT can not be accessed!\n", enclave->eid);
   }
-  sbi_memcpy(retval_ptr, (void *)(&retval_reason), sizeof(int));
-  sbi_printf("[sm] return back to PE reason: %d\n", retval_reason);
+  sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
+  
+  sbi_printf("[sm] return back to PE reason: %d\n", return_reason_int);
+  sbi_printf("[sm] return back to PE value: %d\n", return_value_int);
   return ret;
 }
 
@@ -2485,7 +2498,7 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
       retval = privil_attest_after_resume(enclave, regs[13]);
       break;
     case OCALL_RUN_ENCLAVE:
-      retval = privil_run_after_resume(enclave, regs[13]);
+      retval = privil_run_after_resume(enclave, regs[13], regs[14]);
       break;
     default:
       retval = 0;

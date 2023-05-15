@@ -225,7 +225,8 @@ typedef struct ocall_attest_param
 typedef struct ocall_run_param
 {
   int run_eid;
-  int return_reason;
+  unsigned long reason_ptr;
+  unsigned long retval_ptr;
 } ocall_run_param_t;
 
 #endif

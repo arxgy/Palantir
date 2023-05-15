@@ -64,6 +64,8 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 
 #define RETURN_USER_EXIT_ENCL             0
 #define RETURN_USER_RELAY_PAGE            1
+/* support NE IRQ scheduling */
+#define RETURN_USER_NE_IRQ                2
 
 /* OCALL codes */
 #define OCALL_MMAP                        1
@@ -192,7 +194,8 @@ typedef struct ocall_attest_param
 typedef struct ocall_run_param
 {
   int run_eid;
-  unsigned long return_ptr;
+  unsigned long reason_ptr;
+  unsigned long retval_ptr;
 } ocall_run_param_t;
 
 enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type);

@@ -1144,6 +1144,7 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
       ret = privil_stop_enclave(regs, arg0);
       break;
     case OCALL_RESUME_ENCLAVE:
+      // the arg0 is the VA of run_arg (also as resume arg)
       ret = privil_resume_enclave(regs, arg0);
       break;
     case OCALL_DESTROY_ENCLAVE:

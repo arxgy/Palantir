@@ -230,7 +230,9 @@ int handle_ocall_attest_enclave(enclave_instance_t *enclave_instance, enclave_t 
 
 int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
-  int ret = 0, reason = 0;
+  int ret = 0;
+  /* the NE's return reason and value */
+  int return_reason = 0, return_value = 0;
   void *kbuf;
   enclave_t *run_enclave = NULL;
  // TODO: check ocall_arg0 is NULL or not.
@@ -264,18 +266,19 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
    *         return: when IRQ / EXIT
    * \details call our customized function
   */
-  ret = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
-  if (ret < 0)
+  return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
+  if (return_reason < 0)
   {
     penglai_eprintf("[sdk driver] penglai_enclave_ocall_run failed with retval [%d]\n", ret);
   }
-  reason = enclave_param.retval;
+  return_value = enclave_param.retval;
 
   /** step 3. return to PE
    *          return with reason (IRQ / RELAY PAGE?)
   */
-  penglai_printf("[sdk driver] reason: [%d]\n", reason);
-  ret = SBI_PENGLAI_4(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RUN_ENCLAVE, reason); 
+  penglai_printf("[sdk driver] return_reason: [%d]\n", return_reason);
+  penglai_printf("[sdk driver] return_value: [%d]\n", return_value);
+  ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RUN_ENCLAVE, return_reason, return_value); 
   
   return ret;
 }

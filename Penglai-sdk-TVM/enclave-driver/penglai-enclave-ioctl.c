@@ -627,13 +627,28 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
     resume_id = enclave->eid;
     penglai_printf("[sdk driver] NEs resume_id: [%lu]\n", resume_id);
     /* currently we don't support IRQ scheduling. */
-    // return 0;
   } 
   
   //handler the ocall from enclave;
 resume_for_rerun:
   while((ret == ENCLAVE_TIMER_IRQ) || (ret == ENCLAVE_OCALL) || (ret == ENCLAVE_RETURN_MONITOR_MODE))
   {
+    // if (ret == ENCLAVE_TIMER_IRQ)
+    // {
+    //   //FIXME: no we call yield every time there is a time interrupt
+    //   yield();
+    //   if (filep != NULL)
+    //   {
+    //     ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
+    //   }
+    //   else 
+    //   {
+    //     printk("[sdk driver] NE recv [ENCLAVE_TIMER_IRQ]\n");
+    //     /* to yield or not to yield, this is a question. */
+    //     ret = RETURN_USER_NE_IRQ;
+    //     break;
+    //   }
+    // }
     if (ret == ENCLAVE_TIMER_IRQ)
     {
       printk("[sdk driver] [ENCLAVE_TIMER_IRQ]\n");
@@ -668,6 +683,10 @@ resume_for_rerun:
   }
   else if (ret == ENCLAVE_RETURN_USER_MODE){
     return RETURN_USER_RELAY_PAGE;
+  }
+  else if (ret == RETURN_USER_NE_IRQ)
+  {
+    return RETURN_USER_NE_IRQ;
   }
 
   free_enclave:
@@ -784,6 +803,11 @@ int penglai_enclave_resume(struct file * filep, unsigned long args)
     }
     spin_unlock(&enclave_create_lock);
     return -EFAULT;
+}
+
+int penglai_enclave_ocall_resume(unsigned long args)
+{
+  return penglai_enclave_resume(NULL, args);
 }
 
 long penglai_enclave_ioctl(struct file* filep, unsigned int cmd, unsigned long args)

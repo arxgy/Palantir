@@ -60,28 +60,40 @@ int hello(unsigned long * args)
   eapp_print("\n[pe] attestation sum: %d", sum);
 
   ocall_run_param_t run_param;
-  int return_reason;
+  int return_reason, return_value;
   run_param.run_eid = create_param.eid;
-  run_param.return_ptr = &return_reason;
-  while (retval = eapp_run_enclave((unsigned long)(&run_param)))
+  run_param.reason_ptr = &return_reason;
+  run_param.retval_ptr = &return_value;
+
+  retval = eapp_run_enclave((unsigned long)(&run_param));
+
+  /* todo. ADD A SCHEDULER HERE. */
+  while (retval == 0)
   {
-    eapp_print("[pe] eapp_run_enclave retval: [%d]\n", retval);
     eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
     switch (return_reason)
     {
-    case RETURN_USER_RELAY_PAGE:
-      eapp_print("[pe] run return for RETURN_USER_RELAY_PAGE?\n");
-      break;
-    case RETURN_USER_NE_IRQ:
-      eapp_print("[pe] run return for RETURN_USER_NE_IRQ\n");
-      break;
-    default:
-      eapp_print("[pe] eapp_run_enclave return value is non-zero: [%d]\n", return_reason);
+      case RETURN_USER_EXIT_ENCL:
+        eapp_print("[pe] Normal Enclave Exit!\n");
+        break;
+      case RETURN_USER_NE_IRQ:
+        eapp_print("[pe] run return for RETURN_USER_NE_IRQ\n");
+        break;
+      default:
+        eapp_print("[pe] eapp_run_enclave return value is: [%d]\n", return_reason);
+        break;
+    }
+    if (return_reason == RETURN_USER_EXIT_ENCL)
+    {
+      eapp_print("[pe] eapp_run_enclave return_value: [%d]\n", return_value);
       break;
     }
+    eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
+    eapp_print("[pe] try resume NE [%d]\n", run_param.run_eid);
+    /* we reuse the [return reason] as [resume reason] */
+    retval = eapp_resume_enclave((unsigned long)(&run_param));
   }
-  eapp_print("[pe] eapp_run_enclave retval: [%d]\n", retval);
-  eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
+
   /* exit successfully */
   eapp_print("[pe] hello world!\n");
   EAPP_RETURN(0);
