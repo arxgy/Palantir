@@ -76,14 +76,14 @@ int hello(unsigned long * args)
       eapp_print("[pe] run return for RETURN_USER_NE_IRQ\n");
       break;
     default:
-      eapp_print("[pe] eapp_run_enclave return value is wrong! [%d]\n", retval);
+      eapp_print("[pe] eapp_run_enclave return value is non-zero: [%d]\n", return_reason);
       break;
     }
   }
   eapp_print("[pe] eapp_run_enclave retval: [%d]\n", retval);
   eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
   /* exit successfully */
-  eapp_print("hello world!\n");
+  eapp_print("[pe] hello world!\n");
   EAPP_RETURN(0);
 }
 

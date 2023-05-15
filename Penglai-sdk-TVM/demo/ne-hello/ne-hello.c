@@ -4,8 +4,8 @@
 
 int hello(unsigned long * args)
 {
-  printf("hello world!\n");
-  EAPP_RETURN(0);
+  eapp_print("[ne] hello world!\n");
+  EAPP_RETURN(1);
 }
 
 int EAPP_ENTRY main(){

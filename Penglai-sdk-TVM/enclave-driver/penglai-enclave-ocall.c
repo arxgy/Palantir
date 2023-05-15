@@ -264,11 +264,12 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
    *         return: when IRQ / EXIT
    * \details call our customized function
   */
-  reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
-  if (reason < 0)
+  ret = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
+  if (ret < 0)
   {
     penglai_eprintf("[sdk driver] penglai_enclave_ocall_run failed with retval [%d]\n", ret);
   }
+  reason = enclave_param.retval;
 
   /** step 3. return to PE
    *          return with reason (IRQ / RELAY PAGE?)
