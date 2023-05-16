@@ -93,6 +93,15 @@ int hello(unsigned long * args)
     // eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
     // eapp_print("[pe] try resume NE [%d]\n", run_param.run_eid);
     /* we reuse the [return reason] as [resume reason] */
+    ocall_inspect_param_t inspect_param;
+    inspect_param.inspect_eid = run_param.run_eid;
+    /* fill it. */
+    retval = eapp_inspect_enclave((unsigned long)(&inspect_param));
+    if (retval)
+    {
+      eapp_print("[pe] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
+      break;
+    }
     if (stop_and_destroy)
     {
       // retval = eapp_stop_enclave((unsigned long)(&stop_param));

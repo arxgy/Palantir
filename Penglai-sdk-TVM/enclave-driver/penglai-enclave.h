@@ -51,6 +51,7 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define SBI_SM_ATTEST_SHADOW_ENCLAVE     80
 #define SBI_SM_DESTROY_SHADOW_ENCLAVE    79
 
+#define SBI_SM_INSPECT_ENCLAVE           70
 //Error codes of SBI_SM_ALLOC_ENCLAVE_MEM
 #define ENCLAVE_ATTESTATION         -3
 #define ENCLAVE_NO_MEM                   -2
@@ -83,6 +84,7 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define OCALL_STOP_ENCLAVE		 	 19
 #define OCALL_RESUME_ENCLAVE		 20
 #define OCALL_DESTROY_ENCLAVE		 21
+#define OCALL_INSPECT_ENCLAVE		 22
 
 #define RESUME_FROM_TIMER_IRQ             0
 #define RESUME_FROM_STOP                  1
@@ -198,6 +200,16 @@ typedef struct ocall_run_param
   unsigned long reason_ptr;
   unsigned long retval_ptr;
 } ocall_run_param_t;
+
+typedef struct ocall_inspect_param
+{
+  int inspect_eid;
+  unsigned long inspect_address; // VA in NE
+  unsigned long inspect_size;
+  int reason;  // let sdk read (RDONLY), sync with *reason_ptr.
+  unsigned long reason_ptr;
+  unsigned long inspect_result; // VA in PE
+} ocall_inspect_param_t;
 
 enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type);
 int destroy_enclave(enclave_t* enclave);

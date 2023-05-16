@@ -23,6 +23,8 @@
 #define SBI_DESTROY_SERVER_ENCLAVE        89
 #define SBI_DESTROY_SHADOW_ENCLAVE        79
 
+#define SBI_INSPECT_ENCLAVE           	  70
+
 #define SBI_SM_DEBUG_PRINT               88
 #define SBI_RUN_SHADOW_ENCLAVE           87
 #define SBI_CREATE_SHADOW_ENCLAVE        86
@@ -103,6 +105,7 @@
 #define OCALL_STOP_ENCLAVE		 	 19
 #define OCALL_RESUME_ENCLAVE		 20
 #define OCALL_DESTROY_ENCLAVE		 21
+#define OCALL_INSPECT_ENCLAVE		 22
 
 typedef int page_meta;
 #define NORMAL_PAGE                      ((page_meta)0x7FFFFFFF)
@@ -158,6 +161,8 @@ uintptr_t sm_run_enclave(uintptr_t *regs, uintptr_t enclave_id, uintptr_t enclav
 uintptr_t sm_stop_enclave(uintptr_t *regs, uintptr_t enclave_id);
 uintptr_t sm_resume_enclave(uintptr_t *regs, uintptr_t enclave_id, uintptr_t resume_func_id);
 uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id);
+// PE-related operations
+uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
 
 // Server enclave-related operations
 uintptr_t sm_create_server_enclave(uintptr_t enclave_create_args);

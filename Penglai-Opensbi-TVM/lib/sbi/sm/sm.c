@@ -964,6 +964,24 @@ uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id)
 }
 
 /**************************************************************/
+/*                   Interfaces for Privileged Enclave        */
+/**************************************************************/
+/**
+ * \brief This transitional function is used to inspect the enclave.
+ * 
+ * \param tgt_eid The inspectee eid. (slab-layer)
+ * \param src_eid The inspector eid. (slab-layer)
+ * \param inspect_addr The start VA address of inspectee region
+ * \param inspect_size The size of inspectee region (<= PAGE SIZE, normally 4kB)
+ */
+uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size)
+{
+  uintptr_t retval = 0;
+  sbi_printf("[sm] into sm_inspect_enclave\n");
+  return retval;
+}
+
+/**************************************************************/
 /*                   Interfaces for shadow enclave           */
 /**************************************************************/
 /**
@@ -1150,6 +1168,9 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
     case OCALL_DESTROY_ENCLAVE:
       // the arg0 is the idr-layer eid of target enclave.
       ret = privil_destroy_enclave(regs, arg0);
+      break; 
+    case OCALL_INSPECT_ENCLAVE:
+      ret = privil_inspect_enclave(regs, arg0);
       break; 
     default:
       ret = -1UL;

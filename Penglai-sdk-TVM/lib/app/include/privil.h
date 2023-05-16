@@ -9,7 +9,6 @@
 #define RETURN_USER_NE_IRQ                2
 
 /* todo: host-level update */
-/* maybe conflict */
 typedef enum
 {
   NORMAL_ENCLAVE = 0,
@@ -34,8 +33,6 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
-
-
 } ocall_create_param_t;
 
 
@@ -56,5 +53,15 @@ typedef struct ocall_run_param
   unsigned long reason_ptr;
   unsigned long retval_ptr;
 } ocall_run_param_t;
+
+typedef struct ocall_inspect_param
+{
+  int inspect_eid;
+  unsigned long inspect_address; // VA in NE
+  unsigned long inspect_size;
+  int reason;  // let sdk read (RDONLY), sync with *reason_ptr.
+  unsigned long reason_ptr;
+  unsigned long inspect_result; // VA in PE
+} ocall_inspect_param_t;
 
 #endif

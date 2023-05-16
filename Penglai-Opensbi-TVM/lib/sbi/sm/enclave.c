@@ -2501,6 +2501,20 @@ uintptr_t privil_destroy_after_resume(struct enclave_t *enclave)
   return ret;
 }
 
+/**
+ * \brief Write inspect result to PE.
+ * 
+ * \param enclave The enclave structure.
+ * \param inspect_result The VA of PE, written target.
+ * \param inspect_size  The inspect size
+ */
+uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspect_result, uintptr_t inspect_size)
+{
+  uintptr_t ret = 0;
+  /* write data buffer back to PE. */
+  /* check on enclave */
+  return ret;
+}
 
 /**
  * \brief Host use this fucntion to re-enter enclave world.
@@ -2574,6 +2588,8 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
     case OCALL_DESTROY_ENCLAVE:
       retval = privil_destroy_after_resume(enclave);
       break;
+    case OCALL_INSPECT_ENCLAVE:
+      retval = privil_inspect_after_resume(enclave, regs[13], regs[14]);
     default:
       retval = 0;
       break;
@@ -4307,6 +4323,73 @@ uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t tgt_eid)
   enclave->state = OCALLING;
   ret = ENCLAVE_OCALL;
   sbi_printf("[sm] privil_destroy_enclave: target enclave eid (slab): [%d]\n", enclave->eid);
+out:
+  release_enclave_metadata_lock();
+  return ret;
+}
+
+/**
+ * \brief This transitional function is used to inspect the NE.
+ * 
+ * \param regs The host register context.
+ * \param enclave_inspect_args   The inspect parameter (VA)
+*/
+uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args)
+{
+  uintptr_t ret = 0;
+  struct enclave_t *enclave = NULL; // current running enclave, should be PE.
+  int eid = 0; 
+  unsigned remain_page_size;
+  unsigned param_size = sizeof(ocall_inspect_param_t);
+
+  if(check_in_enclave_world() < 0)
+  {
+    sbi_bug("M mode: privil_inspect_enclave: CPU is not in the enclave mode\n");
+    return -1UL;
+  }
+  acquire_enclave_metadata_lock();
+
+  /* slab-level eid */
+  eid = get_curr_enclave_id();
+  enclave = __get_enclave(eid);
+  if( !enclave || 
+      check_enclave_authentication(enclave)!=0 || 
+      enclave->state != RUNNING || 
+      enclave->type != PRIVIL_ENCLAVE)
+  {
+    // early reject.
+    ret = -1UL;
+    sbi_bug("M mode: privil_inspect_enclave: enclave%d can not be accessed!\n", eid);
+    goto out;
+  }
+  void *inspect_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_inspect_args);
+  if (!inspect_args)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_inspect_enclave: enclave_inspect_args pointer is not valid\n");
+    goto out;
+  }
+
+  /* Avoid same-VA-page but diff-PA-page situation. */
+  remain_page_size = PAGE_SIZE - (enclave_inspect_args & (PAGE_SIZE-1));
+  if (param_size > remain_page_size) 
+  {
+    copy_to_host((void*)(enclave->kbuffer), inspect_args, remain_page_size);
+    copy_to_host((void*)(enclave->kbuffer+remain_page_size), 
+                 va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(enclave_inspect_args+remain_page_size)),
+                 param_size - remain_page_size);
+  } 
+  else 
+  {
+    copy_to_host((void*)(enclave->kbuffer), inspect_args, param_size);
+  }
+  copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_INSPECT_ENCLAVE);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_inspect_args);
+
+  swap_from_enclave_to_host(regs, enclave);
+  enclave->state = OCALLING;
+  ret = ENCLAVE_OCALL;
 out:
   release_enclave_metadata_lock();
   return ret;

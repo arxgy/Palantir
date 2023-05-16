@@ -230,4 +230,14 @@ typedef struct ocall_run_param
   unsigned long retval_ptr;
 } ocall_run_param_t;
 
+typedef struct ocall_inspect_param
+{
+  int inspect_eid;
+  unsigned long inspect_address; // VA in NE
+  unsigned long inspect_size;
+  int reason;  // let sdk read (RDONLY), sync with *reason_ptr.
+  unsigned long reason_ptr;
+  unsigned long inspect_result; // VA in PE
+} ocall_inspect_param_t;
+
 #endif

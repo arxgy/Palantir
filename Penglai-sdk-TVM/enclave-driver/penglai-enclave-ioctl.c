@@ -810,6 +810,15 @@ int penglai_enclave_resume(struct file * filep, unsigned long args)
     return -EFAULT;
 }
 
+/** Provide our inspect function here. 
+ * by Ganxiang Yang @ May 16, 2023.
+*/
+// int penglai_enclave_ocall_inspect(unsigned long args)
+// {
+//   int ret = 0;
+//   return ret;
+// }
+
 long penglai_enclave_ioctl(struct file* filep, unsigned int cmd, unsigned long args)
 {
   char ioctl_data[1024];

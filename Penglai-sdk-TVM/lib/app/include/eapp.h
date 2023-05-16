@@ -64,7 +64,8 @@ int EAPP_ATTEST_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_v
 int EAPP_RUN_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_STOP_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_RESUME_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
-int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long eid);
+int EAPP_INSPECT_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 
 void* eapp_mmap(void* vaddr, unsigned long size);
 int eapp_unmap(void* vaddr, unsigned long size);
@@ -90,6 +91,7 @@ int eapp_run_enclave(unsigned long ocall_param_vaddr);
 int eapp_stop_enclave(unsigned long ocall_param_vaddr);
 int eapp_resume_enclave(unsigned long ocall_param_vaddr);
 int eapp_destroy_enclave(unsigned long eid);
+int eapp_inspect_enclave(unsigned long ocall_param_vaddr);
 
 #define ROUNDUP(size, align) (((size-1)/align+1)*align)
 #define RISCV_PAGE_SIZE 4096

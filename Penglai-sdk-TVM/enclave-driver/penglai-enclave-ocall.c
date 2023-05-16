@@ -416,6 +416,54 @@ int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t
   return ret;
 }
 
+int handle_ocall_inspect_enclave(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
+{
+  int ret = 0;
+  int target_eid = 0;
+  void *kbuf;
+  enclave_t *inspect_enclave = NULL;
+  if (isShadow) 
+  {
+    // TODO.
+    kbuf = (void *) __va(enclave_instance->ocall_arg0);
+  } 
+  else 
+  {
+    kbuf = (void *) __va(enclave->ocall_arg0);
+  }
+  /**
+   * step 1. prepare 
+   *          - copy parameters & get eid
+   *          - do sanity checks
+  */
+  ocall_inspect_param_t *ocall_inspect_param_kbuf = (ocall_inspect_param_t *) (kbuf);
+  ocall_inspect_param_t ocall_inspect_param_local;
+  memcpy((void *)(&ocall_inspect_param_local), ocall_inspect_param_kbuf, sizeof(ocall_inspect_param_t));
+  inspect_enclave = get_enclave_by_id(ocall_inspect_param_local.inspect_eid);
+  if (!inspect_enclave)
+  {
+    penglai_eprintf("[sdk driver] target enclave [%d] cannot be accessed.\n", ocall_inspect_param_local.inspect_eid);
+  }
+  target_eid = inspect_enclave->eid;
+  /**
+   * step 2. inspect NE
+   * inspect result will be written into kbuffer
+  */
+  ret = SBI_PENGLAI_4(SBI_SM_INSPECT_ENCLAVE, target_eid, resume_id, 
+                      ocall_inspect_param_local.inspect_address, 
+                      ocall_inspect_param_local.inspect_size);
+  if (ret < 0)
+  {
+    penglai_eprintf("[sdk driver] SBI_SM_INSPECT_ENCLAVE failed with retval [%d]\n", ret);
+  }
+  /**
+   * step 3. return to PE
+  */
+  ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_INSPECT_ENCLAVE, 
+                      ocall_inspect_param_local.inspect_result, ocall_inspect_param_local.inspect_size);
+  return ret;
+}
+
 int penglai_enclave_ocall(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
   unsigned int ocall_func_id = 0;
@@ -483,6 +531,11 @@ int penglai_enclave_ocall(enclave_instance_t *enclave_instance, enclave_t *encla
       ret = handle_ocall_destroy_enclave(enclave_instance, enclave, resume_id, isShadow);
       break;
     }    
+    case OCALL_INSPECT_ENCLAVE:
+    {
+      ret = handle_ocall_inspect_enclave(enclave_instance, enclave, resume_id, isShadow);
+      break;
+    }
     // Some unexpected errors will incur when adding more case clauses 
     default:
     {

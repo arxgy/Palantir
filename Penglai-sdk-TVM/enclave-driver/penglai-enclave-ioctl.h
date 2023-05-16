@@ -184,6 +184,7 @@ long penglai_enclave_ioctl(struct file* filep, unsigned int cmd, unsigned long a
 int penglai_enclave_ocall_create(unsigned long args);
 int penglai_enclave_ocall_run(unsigned long args);
 int penglai_enclave_ocall_destroy(unsigned long args);
+// int penglai_enclave_ocall_inspect(unsigned long args);
 
 
 #endif
