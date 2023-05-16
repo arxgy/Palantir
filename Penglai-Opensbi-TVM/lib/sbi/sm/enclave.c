@@ -2964,6 +2964,7 @@ out:
 uintptr_t exit_enclave(uintptr_t* regs, unsigned long enclave_retval)
 {
   struct enclave_t *enclave = NULL;
+  struct enclave_t *parent = NULL;
   int eid = 0;
   uintptr_t ret = 0;
   struct pm_area_struct *pma = NULL;
@@ -2989,6 +2990,53 @@ uintptr_t exit_enclave(uintptr_t* regs, unsigned long enclave_retval)
   copy_dword_to_host((uintptr_t*)enclave->retval, enclave_retval);
 
   swap_from_enclave_to_host(regs, enclave);
+
+  /* add our children metadata operations here. */
+  sbi_printf("[sm] enclave eid (slab): [%u]\n", enclave->eid);
+  sbi_printf("[sm] enclave parent eid (slab): [%lu]\n", enclave->parent_eid);
+  if (enclave->parent_eid != NULL_EID)
+  {
+    parent = __get_enclave(enclave->parent_eid);
+    if (!parent)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: cannot access parent enclave [%lu]\n", enclave->parent_eid);
+      goto exit_enclave_out;
+    }
+    if (parent->type != PRIVIL_ENCLAVE || parent->state < FRESH)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: illegal parent [%lu]\n", enclave->parent_eid);
+      goto exit_enclave_out;
+    }
+    sbi_printf("[sm] parent eid (slab): [%u]\n", parent->eid);
+    sbi_printf("[sm] parent eid metadata head: [%p]\n", parent->children_metadata_head);
+    if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
+      goto exit_enclave_out;
+    }
+    else 
+    {
+      sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
+    }
+    if (__free_children(enclave->eid, parent->children_metadata_head))
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] free failed [check again]\n", enclave->eid);
+      goto exit_enclave_out;
+    }
+    sbi_printf("[sm] CHILDREN_DELETE [EXIT] BASIC TEST [START]\n");
+    if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
+    {
+      ret = ENCLAVE_ERROR;
+      sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
+      goto exit_enclave_out;
+    }
+    sbi_printf("[sm] CHILDREN_DELETE [EXIT] PASSED BASIC TEST!\n");
+
+  }
 
   pma = enclave->pma_list;
   need_free_enclave_memory = 1;

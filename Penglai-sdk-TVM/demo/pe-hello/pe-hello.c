@@ -67,7 +67,7 @@ int hello(unsigned long * args)
 
   retval = eapp_run_enclave((unsigned long)(&run_param));
 
-  int stop_and_destroy = 1;
+  int stop_and_destroy = 0;
   
   /* todo. ADD A SCHEDULER HERE. */
   while (retval == 0)
