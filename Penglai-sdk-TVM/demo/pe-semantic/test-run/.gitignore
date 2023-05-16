@@ -1,0 +1,5 @@
+runner
+test-run
+*.dump
+*.o
+*.S
