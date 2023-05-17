@@ -50,7 +50,7 @@ int hello(unsigned long * args)
   {
     eapp_print("eapp_attest_enclave failed: %d\n",retval);
   }
-  int iter = 0, sum = 0;
+  int iter = 0, sum = 0, requested = 0;
   char *hash = report.enclave.hash;
   for (iter = 0 ; iter < HASH_SIZE; iter++)
   {
@@ -59,12 +59,20 @@ int hello(unsigned long * args)
   }
   eapp_print("\n[pe] attestation sum: %d", sum);
 
+  /* make it a unified region, instead of type-specified */
+  ocall_request_inspect_t request_param;
+  unsigned long request_reason;
+
   ocall_run_param_t run_param;
   int return_reason, return_value;
   run_param.run_eid = create_param.eid;
-  run_param.reason_ptr = &return_reason;
-  run_param.retval_ptr = &return_value;
-
+  run_param.reason_ptr = (unsigned long)(&return_reason);
+  run_param.retval_ptr = (unsigned long)(&return_value);
+  run_param.request_reason = (unsigned long)(&request_reason);
+  run_param.request_arg = (unsigned long)(&request_param);
+  eapp_print("[pe] request_reason [%p], request_arg [%p].\n",
+              (void *)(&request_reason),
+              (void *)(&request_param));
   retval = eapp_run_enclave((unsigned long)(&run_param));
 
   int stop_and_destroy = 0;
@@ -72,9 +80,15 @@ int hello(unsigned long * args)
   /* todo. ADD A SCHEDULER HERE. */
   while (retval == 0)
   {
-    // eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
+    requested = 0;
     switch (return_reason)
     {
+      case NE_REQUEST_INSPECT:
+        requested = 1;
+        eapp_print("[pe] receive NE_REQUEST_INSPECT\n");
+        break;
+      case NE_REQUEST_SHARE_PAGE:
+        break;
       case RETURN_USER_EXIT_ENCL:
         // eapp_print("[pe] Normal Enclave Exit!\n");
         break;
@@ -96,7 +110,7 @@ int hello(unsigned long * args)
     ocall_inspect_param_t inspect_param;
     inspect_param.inspect_eid = run_param.run_eid;
     /* fill it. */
-    retval = eapp_inspect_enclave((unsigned long)(&inspect_param));
+    // retval = eapp_inspect_enclave((unsigned long)(&inspect_param));
     if (retval)
     {
       eapp_print("[pe] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
@@ -113,6 +127,11 @@ int hello(unsigned long * args)
     else 
     {
       run_param.resume_reason = return_reason;
+      // For all request-interrupt, we provide a uniformed resume reason.
+      if (requested)
+      {
+        run_param.resume_reason = RETURN_USER_NE_REQUEST;        
+      }
       retval = eapp_resume_enclave((unsigned long)(&run_param));
     }
   }

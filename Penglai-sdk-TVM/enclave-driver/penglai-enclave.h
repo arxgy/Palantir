@@ -62,11 +62,16 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define ENCLAVE_YIELD                     3
 #define ENCLAVE_RETURN_USER_MODE          4
 #define ENCLAVE_RETURN_MONITOR_MODE       5
+#define ENCLAVE_NE_REQUEST		            7
 
 #define RETURN_USER_EXIT_ENCL             0
 #define RETURN_USER_RELAY_PAGE            1
 /* support NE IRQ scheduling */
 #define RETURN_USER_NE_IRQ                2
+#define RETURN_USER_NE_REQUEST            3
+
+#define NE_REQUEST_INSPECT                10
+#define NE_REQUEST_SHARE_PAGE             11
 
 /* OCALL codes */
 #define OCALL_MMAP                        1
@@ -85,10 +90,12 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define OCALL_RESUME_ENCLAVE		 20
 #define OCALL_DESTROY_ENCLAVE		 21
 #define OCALL_INSPECT_ENCLAVE		 22
+#define OCALL_PAUSE_ENCLAVE		 	 23
 
 #define RESUME_FROM_TIMER_IRQ             0
 #define RESUME_FROM_STOP                  1
 #define RESUME_FROM_OCALL                 2
+#define RESUME_FROM_REQUEST               3
 
 #define FLAG_DESTROY                      0
 #define DIRECT_DESTROY                    1
@@ -193,12 +200,15 @@ typedef struct ocall_attest_param
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
 
+/* used in RUN & RESUME */
 typedef struct ocall_run_param
 {
   int run_eid;
   int resume_reason;  // let sdk read (RDONLY), sync with *reason_ptr.
   unsigned long reason_ptr;
   unsigned long retval_ptr;
+  unsigned long request_reason;  // NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
+  unsigned long request_arg;     // VA in PE
 } ocall_run_param_t;
 
 typedef struct ocall_inspect_param
@@ -210,6 +220,12 @@ typedef struct ocall_inspect_param
   unsigned long reason_ptr;
   unsigned long inspect_result; // VA in PE
 } ocall_inspect_param_t;
+
+typedef struct ocall_request_inspect
+{
+    unsigned long inspect_ptr;
+    unsigned long inspect_size;
+} ocall_request_inspect_t;
 
 enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type);
 int destroy_enclave(enclave_t* enclave);

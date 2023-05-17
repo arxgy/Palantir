@@ -2179,6 +2179,61 @@ resume_enclave_out:
 }
 
 /**
+ * \brief Resume the normal enclave from the previous ocall.
+ * 
+ * \param regs The host reg need to save.
+ * \param eid The given enclave id. 
+ */
+uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
+{
+  uintptr_t retval = 0;
+  struct enclave_t* enclave = NULL;
+  acquire_enclave_metadata_lock();
+  enclave = __get_real_enclave(eid);
+
+  if(!enclave || (enclave->state <= INVALID))
+  {
+    sbi_printf("M mode: resume_from_request: enclave%d is not existed\n", eid);
+    retval = 0UL;
+    goto resume_from_req_out;
+  }
+
+  if(enclave->state <= FRESH || enclave->host_ptbr != csr_read(CSR_SATP))
+  {
+    sbi_bug("M mode: resume_from_request: enclave%d cannot resume state %d\n", eid, enclave->state);
+    retval = -1UL;
+    goto resume_from_req_out;
+  }
+
+  if(enclave->state == STOPPED)
+  {
+    sbi_printf("[sm] resume_from_request: enclave%d is stopped\n", eid);
+    retval = ENCLAVE_TIMER_IRQ;
+    goto resume_from_req_out;
+  }
+  
+  if(enclave->state != OCALLING)
+  {
+    sbi_bug("M mode: resume_from_request: enclave%d is not runnable\n", eid);
+    retval = -1UL;
+    goto resume_from_req_out;
+  }
+
+  if(swap_from_host_to_enclave(regs, enclave) < 0)
+  {
+    sbi_bug("M mode: resume_from_request: enclave can not be resume\n");
+    retval = -1UL;
+    goto resume_from_req_out;
+  }
+  enclave->state = RUNNING;
+  // regs[10] will be set to retval when mcall_trap return, so we have to
+  // set retval to be regs[10] here to succuessfully restore context
+  retval = regs[10];
+resume_from_req_out:
+  release_enclave_metadata_lock();
+  return retval;
+}
+/**
  * \brief Map the enclave memory before ocall returns.
  * 
  * \param enclave The enclave structure.
@@ -2395,7 +2450,9 @@ out:
  * 
  * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
  *          EXIT_ENCLAVE won't enter this function, instead, it will enter sm_exit_enclave().
- * \details return_value is valid/useful if and only if return_reason == RETURN_USER_EXIT_ENCL (0)
+ * \details For NE requests, the detailed request reason is saved in \param return_reason,
+ *          and the request address (VA) is saved in \param return_value.
+ * 
  */
 uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_reason, uintptr_t return_value)
 {
@@ -2433,8 +2490,38 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   }
   sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
   
-  sbi_printf("[sm] return back to PE reason: %d\n", return_reason_int);
-  sbi_printf("[sm] return back to PE value: %d\n", return_value_int);
+  sbi_printf("[sm] return back to PE reason(int): %d\n", return_reason_int);
+  sbi_printf("[sm] return back to PE value(int): %d\n", return_value_int);
+  sbi_printf("[sm] return back to PE reason(UL): %lu\n", return_reason);
+  sbi_printf("[sm] return back to PE value(UL): %lu\n", return_value);
+
+  /* handler Request from Normal Enclave, load its request and write it into PE's running param. */
+  sbi_printf("[sm] privil_run_after_resume: handling request from NE.\n");
+  uintptr_t ne_request_reason = return_reason;
+  uintptr_t ne_request_arg = return_value;
+  if (return_reason == NE_REQUEST_INSPECT)
+  { 
+    /* todo. if the parameter size is too large, cross page. */
+    ocall_request_inspect_t ocall_request_local;
+    void *ne_req_arg_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request_arg));
+    void *pe_req_arg_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_arg));
+    sbi_memcpy(pe_req_arg_pa, ne_req_arg_pa, sizeof(ocall_request_inspect_t));
+
+    void *pe_req_reason_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_reason));
+    sbi_memcpy(pe_req_reason_pa, (void *)(&ne_request_reason), sizeof(uintptr_t));
+
+    sbi_memcpy((void *)(&ocall_request_local), ne_req_arg_pa, sizeof(ocall_request_inspect_t));
+
+    sbi_printf("[sm] ne_request_arg: [%lu]\n", ne_request_arg);
+    sbi_printf("[sm] ne_request_reason: [%lu]\n", ne_request_reason);
+    sbi_printf("[sm] run_args.request_arg: [%lu]\n", run_args.request_arg);
+    sbi_printf("[sm] run_args.request_reason: [%lu]\n", run_args.request_reason);
+  }
+  else if (return_reason == NE_REQUEST_SHARE_PAGE)
+  {
+    /* todo. */
+  }
+
   return ret;
 }
 
@@ -2826,6 +2913,81 @@ uintptr_t stop_enclave(uintptr_t* regs, unsigned int eid)
   }
 
 stop_enclave_out:
+  return retval;
+}
+
+/**************************************************************/
+/*                   called by Privileged Enclave             */
+/**************************************************************/
+/**
+ * \brief Host calls this function to inspect a running children enclave.
+ * 
+ * \param tgt_eid The inspectee eid. (slab-layer)
+ * \param src_eid The inspector eid. (slab-layer)
+ * \param inspect_addr The start VA address of inspectee region
+ * \param inspect_size The size of inspectee region (<= PAGE SIZE, normally 4kB)
+ */
+uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size)
+{
+  uintptr_t retval = 0;
+  unsigned remain_page_size;
+  struct enclave_t *tgt_enclave = NULL;
+  struct enclave_t *src_enclave = NULL;
+  acquire_enclave_metadata_lock();
+
+  tgt_enclave = __get_enclave(tgt_eid);
+  if (!tgt_enclave || tgt_enclave->state < FRESH || 
+       tgt_enclave->parent_eid != src_eid || 
+       tgt_enclave->type != NORMAL_ENCLAVE)
+  {
+    sbi_bug("M mode: inspect_enclave: target enclave%lu can not be accessed\n", tgt_eid);
+    retval = -1UL;
+    goto inspect_enclave_out;
+  }
+
+  /* give a stronger check in future */
+  src_enclave = __get_enclave(src_eid);
+  if (!src_enclave || src_enclave->state != OCALLING || 
+       src_enclave->parent_eid != NULL_EID || 
+       src_enclave->type != PRIVIL_ENCLAVE)
+  {
+    sbi_bug("M mode: inspect_enclave: source enclave%lu can not be accessed\n", src_eid);
+    retval = -1UL;
+    goto inspect_enclave_out;
+  }
+  if (inspect_size > PAGE_SIZE)
+  {
+    sbi_bug("M mode: inspect_enclave: inspect_size [%lu] is too large.\n", inspect_size);
+    retval = -1UL;
+    goto inspect_enclave_out;
+  }
+
+  void *inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)inspect_addr);
+  if (!inspect_pa)
+  {
+    sbi_bug("M mode: inspect_enclave: inspect_pa [%p] can not be accessed\n", inspect_pa);
+    retval = -1UL;
+    goto inspect_enclave_out;
+  }
+  remain_page_size = PAGE_SIZE - (inspect_addr & (PAGE_SIZE-1));
+  if (inspect_size > remain_page_size)
+  {
+    void *inspect_pa_next = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(inspect_addr+remain_page_size));
+    if (!inspect_pa_next)
+    {
+      sbi_bug("M mode: inspect_enclave: inspect_pa_next [%p] can not be accessed\n", inspect_pa_next);
+      retval = -1UL;
+      goto inspect_enclave_out;
+    }
+    copy_to_host((void *)(src_enclave->kbuffer), inspect_pa, remain_page_size);
+    copy_to_host((void *)(src_enclave->kbuffer + remain_page_size), inspect_pa_next, inspect_size - remain_page_size);
+  }
+  else 
+  {
+    copy_to_host((void *)(src_enclave->kbuffer), inspect_pa, inspect_size);
+  }
+inspect_enclave_out:
+  release_enclave_metadata_lock();
   return retval;
 }
 
@@ -4393,4 +4555,46 @@ uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args
 out:
   release_enclave_metadata_lock();
   return ret;
+}
+
+/**
+ * \brief This transitional function is used to pause the NE itself and return to PE.
+ * 
+ * \param regs The host register context.
+ * \param request The request by NE.
+ * \param enclave_pause_args   The pause parameter (VA)
+ * 
+ * \details This primitive should only be called by NE that governed by PE for now.
+ * It's also explainable for pausing other legacy enclave designs, but we leave it as our future work.
+ * by Ganxiang Yang @ May 17, 2023.
+*/
+uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t request, uintptr_t enclave_pause_args)
+{
+  struct enclave_t *enclave = NULL;
+  int eid = 0;
+  uintptr_t ret = 0;
+  acquire_enclave_metadata_lock();
+
+  eid = get_curr_enclave_id();
+  enclave = __get_enclave(eid);
+  if(!enclave || check_enclave_authentication(enclave) != 0 || enclave->type != NORMAL_ENCLAVE)
+  {
+    sbi_bug("M mode: privil_pause_enclave: enclave%d can not be accessed!\n", eid);
+    ret = -1UL;
+    goto pause_enclave_out;
+  }
+  sbi_printf("[sm] privil_pause_enclave: enclave_pause_args: [%lu]\n", enclave_pause_args);
+  /** 
+   * Copy to ocall_func_id is useless now, since we don't enter penglai_enclave_ocall.
+   * Instead, we jump back to PE's handle_ocall_run_enclave.
+  */
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, request);
+  copy_dword_to_host((uintptr_t*)enclave->retval, (uintptr_t)enclave_pause_args);
+  swap_from_enclave_to_host(regs, enclave);
+  enclave->state = OCALLING;
+  /* We mark return value as REQUEST to distinguish it from normal OCALL. */
+  ret = ENCLAVE_NE_REQUEST;
+pause_enclave_out:
+  release_enclave_metadata_lock();
+  return ret;  
 }

@@ -555,7 +555,11 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
         break;
       case RETURN_USER_NE_IRQ:
         ret = ENCLAVE_TIMER_IRQ;
-        goto resume_ne_for_rerun;
+        goto resume_ne_irq;
+        break;
+      case RETURN_USER_NE_REQUEST:
+        ret = ENCLAVE_NE_REQUEST;
+        goto resume_ne_request;
         break;
       default:
         ret = -1;
@@ -635,12 +639,12 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
     }
     resume_id = enclave->eid;
     penglai_printf("[sdk driver] NEs resume_id: [%lu]\n", resume_id);
-    /* currently we don't support IRQ scheduling. */
+    penglai_printf("[sdk driver] run with return value: [%d]\n", ret);
   } 
   
   //handler the ocall from enclave;
 resume_for_rerun:
-  while((ret == ENCLAVE_TIMER_IRQ) || (ret == ENCLAVE_OCALL) || (ret == ENCLAVE_RETURN_MONITOR_MODE))
+  while((ret == ENCLAVE_TIMER_IRQ) || (ret == ENCLAVE_OCALL) || (ret == ENCLAVE_RETURN_MONITOR_MODE) || (ret == ENCLAVE_NE_REQUEST))
   {
     if (ret == ENCLAVE_TIMER_IRQ)
     {
@@ -654,11 +658,11 @@ resume_for_rerun:
       {
         printk("[sdk driver] hang NE for [ENCLAVE_TIMER_IRQ]\n");
         ret = RETURN_USER_NE_IRQ;
-        /* transfer the control to PE */
         break;
-      resume_ne_for_rerun:
+      resume_ne_irq:
         printk("[sdk driver] resume NE from [ENCLAVE_TIMER_IRQ]\n");
         ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
+        printk("[sdk driver] resume NE from [ENCLAVE_TIMER_IRQ], retval [%d]\n", ret);
       }
     }
     else if(ret == ENCLAVE_RETURN_MONITOR_MODE)
@@ -666,6 +670,17 @@ resume_for_rerun:
       printk("[sdk driver] [penglai_enclave_rerun]\n");
       ret = penglai_enclave_rerun(enclave_instance, enclave, resume_id, enclave_param->isShadow);  
       printk("[sdk driver] return from [penglai_enclave_rerun]\n");
+    }
+    else if (ret == ENCLAVE_NE_REQUEST)
+    {
+      printk("[sdk driver] hang NE for [ENCLAVE_NE_REQUEST]\n");
+      ret = RETURN_USER_NE_REQUEST;
+      /* transfer the control to PE */
+      break;
+    resume_ne_request:  
+      printk("[sdk driver] resume NE for [ENCLAVE_NE_REQUEST]\n");
+      /* todo. just switch to NE for normal execution. */
+      ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_REQUEST);
     }
     else{
       printk("[sdk driver] [penglai_enclave_ocall]\n");
@@ -692,6 +707,10 @@ resume_for_rerun:
   else if (ret == RETURN_USER_NE_IRQ)
   {
     return RETURN_USER_NE_IRQ;
+  }
+  else if (ret == RETURN_USER_NE_REQUEST)
+  {
+    return enclave->ocall_arg0;
   }
 
   free_enclave:

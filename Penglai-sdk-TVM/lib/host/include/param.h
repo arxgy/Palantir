@@ -222,12 +222,15 @@ typedef struct ocall_attest_param
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
 
+/* used in RUN & RESUME */
 typedef struct ocall_run_param
 {
   int run_eid;
   int resume_reason;  // let sdk read (RDONLY), sync with *reason_ptr.
   unsigned long reason_ptr;
   unsigned long retval_ptr;
+  unsigned long request_reason;  // NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
+  unsigned long request_arg;     // VA in PE
 } ocall_run_param_t;
 
 typedef struct ocall_inspect_param
@@ -239,5 +242,11 @@ typedef struct ocall_inspect_param
   unsigned long reason_ptr;
   unsigned long inspect_result; // VA in PE
 } ocall_inspect_param_t;
+
+typedef struct ocall_request_inspect
+{
+    unsigned long inspect_ptr;
+    unsigned long inspect_size;
+} ocall_request_inspect_t;
 
 #endif

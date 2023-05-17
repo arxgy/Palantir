@@ -238,7 +238,7 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
 {
   int ret = 0;
   /* the NE's return reason and value */
-  int return_reason = 0, return_value = 0;
+  unsigned long return_reason = 0, return_value = 0;
   void *kbuf;
   enclave_t *run_enclave = NULL;
  // TODO: check ocall_arg0 is NULL or not.
@@ -269,8 +269,10 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
   ocall_run_param_local->run_eid = run_enclave->eid;
   /**
    * step 2. run NE (in THE LOOP)
-   *         return: when IRQ / EXIT
-   * \details call our customized function
+   *         return: when IRQ / EXIT / REQUEST
+   * \details To handle request, the \param return_reason is diversed. 
+   *          (NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE)
+   * \details To handle request, the \param return_value saved the VA of request arg in target enclave.
   */
   return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
   if (return_reason < 0)
@@ -283,8 +285,8 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
    * step 3. return to PE
    *          return with reason (IRQ / EXIT / ...)
   */
-  penglai_printf("[sdk driver] return_reason: [%d]\n", return_reason);
-  penglai_printf("[sdk driver] return_value: [%d]\n", return_value);
+  penglai_printf("[sdk driver] return_reason: [%lu]\n", return_reason);
+  penglai_printf("[sdk driver] return_value: [%lu]\n", return_value);
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RUN_ENCLAVE, return_reason, return_value); 
   
   return ret;
@@ -301,7 +303,7 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
 {
   int ret = 0;
   /* the NE's return reason and value */
-  int return_reason = 0, return_value = 0;
+  unsigned long return_reason = 0, return_value = 0;
   void *kbuf;
   enclave_t *resume_enclave = NULL;
  // TODO: check ocall_arg0 is NULL or not.
@@ -334,16 +336,18 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   ocall_resume_param_local->run_eid = resume_enclave->eid;
   /**
    * step 2. resume NE (in THE LOOP)
-   *         return: when IRQ / EXIT
+   *         return: when IRQ / EXIT / REQUEST
    * \note Different from host-level resume, which converts enclave state from [STOPPED] to [RUNNABLE],
    *       we give a more customized design.
    *       For PE, it can manually control enclave's IRQ by [RETURN_USER_NE_IRQ], whichs convert enclave state
    *       from [RUNNABLE] to [RUNNING] (re-enter its NE children).
    *       For other possible resume_reason values, we will add them in future work.
+   * \details After handle request, the return_reason is not diversed. All are RETURN_USER_NE_REQUEST;
    *  by Ganxiang Yang @ May 15, 2023.
   */
   switch (ocall_resume_param_local->resume_reason)
   {
+    case RETURN_USER_NE_REQUEST:
     case RETURN_USER_NE_IRQ:
       return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
       if (return_reason < 0)
@@ -364,10 +368,11 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
 
   /**
    * step 3. return to PE
-   *          return with reason (IRQ / EXIT / ...)
+   *         return with reason (IRQ / EXIT / ...)
+   *         For requests, we write data back to PE.
   */
-  penglai_printf("[sdk driver] return_reason: [%d]\n", return_reason);
-  penglai_printf("[sdk driver] return_value: [%d]\n", return_value);
+  penglai_printf("[sdk driver] return_reason: [%lu]\n", return_reason);
+  penglai_printf("[sdk driver] return_value: [%lu]\n", return_value);
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RESUME_ENCLAVE, return_reason, return_value); 
   return ret;
 }
@@ -534,6 +539,12 @@ int penglai_enclave_ocall(enclave_instance_t *enclave_instance, enclave_t *encla
     case OCALL_INSPECT_ENCLAVE:
     {
       ret = handle_ocall_inspect_enclave(enclave_instance, enclave, resume_id, isShadow);
+      break;
+    }
+    case OCALL_PAUSE_ENCLAVE:
+    {
+      ret = 0;
+      printk("[sdk driver] hey, catch you here!\n");
       break;
     }
     // Some unexpected errors will incur when adding more case clauses 

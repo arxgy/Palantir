@@ -49,6 +49,7 @@ int EAPP_STOP_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vad
 int EAPP_RESUME_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long eid);
 int EAPP_INSPECT_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
+int EAPP_PAUSE_ENCLAVE(unsigned long ocall_func_id, unsigned long request, unsigned long ocall_param_vaddr);
 
 void* eapp_mmap(void* vaddr, unsigned long size);
 int eapp_unmap(void* vaddr, unsigned long size);
@@ -65,6 +66,7 @@ int eapp_stop_enclave(unsigned long ocall_param_vaddr);
 int eapp_resume_enclave(unsigned long ocall_param_vaddr);
 int eapp_destroy_enclave(unsigned long ocall_param_vaddr);
 int eapp_inspect_enclave(unsigned long ocall_param_vaddr);
+int eapp_pause_enclave(unsigned long request, unsigned long ocall_param_vaddr)
 
 #define EAPP_ENTRY __attribute__((__section__(".text._start")))
 #define EAPP_RESERVE_REG   asm volatile("addi sp,sp,-256\n\t" \

@@ -37,6 +37,7 @@
 #define OCALL_RESUME_ENCLAVE		 20
 #define OCALL_DESTROY_ENCLAVE		 21
 #define OCALL_INSPECT_ENCLAVE		 22
+#define OCALL_PAUSE_ENCLAVE		 	 23
 
 
 #define __asm_syscall(...) \

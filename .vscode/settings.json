@@ -21,6 +21,10 @@
         "privil.h": "c",
         "string.h": "c",
         "pe-param.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "memory": "c",
+        "enclave.h": "c",
+        "enclave_args.h": "c",
+        "sm.h": "c"
     }
 }

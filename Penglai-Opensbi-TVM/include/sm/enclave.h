@@ -269,6 +269,7 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
 uintptr_t stop_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t wake_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid);
+uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
 
 // Shadow encalve related operations
 uintptr_t create_shadow_enclave(enclave_create_param_t create_args);
@@ -279,6 +280,7 @@ uintptr_t run_shadow_enclave(uintptr_t* regs, unsigned int eid, shadow_enclave_r
 // Resume enclave
 uintptr_t resume_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid);
+uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid);
 
 
 struct call_enclave_arg_t
@@ -328,6 +330,7 @@ uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args);
 uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args);
+uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t pause_reason, uintptr_t enclave_pause_args);
 
 // IPI
 uintptr_t ipi_stop_enclave(uintptr_t *regs, uintptr_t host_ptbr, int eid);
@@ -394,12 +397,15 @@ typedef struct ocall_attest_param
   unsigned long report_ptr; // VA
 } ocall_attest_param_t;
 
+/* used in RUN & RESUME */
 typedef struct ocall_run_param
 {
   int run_eid;
   int resume_reason;  // let sdk read (RDONLY), sync with *reason_ptr.
   unsigned long reason_ptr;
   unsigned long retval_ptr;
+  unsigned long request_reason;  // VA in PE, NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
+  unsigned long request_arg;     // VA in PE
 } ocall_run_param_t;
 
 typedef struct ocall_inspect_param
@@ -411,5 +417,11 @@ typedef struct ocall_inspect_param
   unsigned long reason_ptr;
   unsigned long inspect_result; // VA in PE
 } ocall_inspect_param_t;
+
+typedef struct ocall_request_inspect
+{
+    unsigned long inspect_ptr;
+    unsigned long inspect_size;
+} ocall_request_inspect_t;
 
 #endif /* _ENCLAVE_H */

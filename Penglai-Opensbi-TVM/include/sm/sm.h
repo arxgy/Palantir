@@ -52,11 +52,16 @@
 #define ENCLAVE_TIMER_IRQ        1
 #define ENCLAVE_OCALL            2
 #define ENCLAVE_YIELD            3
+#define ENCLAVE_NE_REQUEST		 7
+/* Enclave request reason */
+#define NE_REQUEST_INSPECT                10
+#define NE_REQUEST_SHARE_PAGE             11
 
 //Function id of resume reason
 #define RESUME_FROM_TIMER_IRQ    0
 #define RESUME_FROM_STOP         1
 #define RESUME_FROM_OCALL        2
+#define RESUME_FROM_REQUEST		 3
 
 #define SBI_LEGAL_MAX            100UL
 
@@ -106,6 +111,7 @@
 #define OCALL_RESUME_ENCLAVE		 20
 #define OCALL_DESTROY_ENCLAVE		 21
 #define OCALL_INSPECT_ENCLAVE		 22
+#define OCALL_PAUSE_ENCLAVE		 	 23
 
 typedef int page_meta;
 #define NORMAL_PAGE                      ((page_meta)0x7FFFFFFF)

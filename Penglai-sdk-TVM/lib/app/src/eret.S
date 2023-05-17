@@ -177,3 +177,9 @@ EAPP_INSPECT_ENCLAVE:
 	li a7, SYS_ocall
     li a6, SBI_EXT_PENGLAI_ENCLAVE
 	ecall
+
+.globl EAPP_PAUSE_ENCLAVE
+EAPP_PAUSE_ENCLAVE:
+	li a7, SYS_ocall
+    li a6, SBI_EXT_PENGLAI_ENCLAVE
+	ecall

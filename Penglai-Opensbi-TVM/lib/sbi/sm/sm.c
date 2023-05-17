@@ -928,16 +928,16 @@ uintptr_t sm_resume_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t resume_fun
   uintptr_t retval = 0;
   switch(resume_func_id)
   {
+    case RESUME_FROM_REQUEST:
+      retval = resume_from_request(regs, eid);
+      break;
     case RESUME_FROM_TIMER_IRQ:
-      // sbi_printf("[sm] trying to resume from timer irq\n");
       retval = resume_enclave(regs, eid);
       break;
     case RESUME_FROM_STOP:
-      // sbi_printf("[sm] trying to resume from stop\n");
       retval = wake_enclave(regs, eid);
       break;
     case RESUME_FROM_OCALL:
-      // sbi_printf("[sm] trying to resume from ocall\n");
       retval = resume_from_ocall(regs, eid);
       break;
     default:
@@ -977,7 +977,7 @@ uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id)
 uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size)
 {
   uintptr_t retval = 0;
-  sbi_printf("[sm] into sm_inspect_enclave\n");
+  retval = inspect_enclave(tgt_eid, src_eid, inspect_addr, inspect_size); 
   return retval;
 }
 
@@ -1172,6 +1172,10 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
     case OCALL_INSPECT_ENCLAVE:
       ret = privil_inspect_enclave(regs, arg0);
       break; 
+    case OCALL_PAUSE_ENCLAVE:
+      // the arg1 is the VA of NE request arg
+      ret = privil_pause_enclave(regs, arg0, arg1);
+      break;
     default:
       ret = -1UL;
       break;
