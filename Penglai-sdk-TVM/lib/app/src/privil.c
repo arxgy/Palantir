@@ -51,9 +51,9 @@ int eapp_inspect_enclave(unsigned long ocall_param_vaddr)
     return retval;
 }
 
-int eapp_pause_enclave(unsigned long request, unsigned long ocall_param_vaddr)
+int eapp_pause_enclave(unsigned long ocall_param_vaddr)
 {
     int retval = 0;
-    retval = EAPP_PAUSE_ENCLAVE(OCALL_PAUSE_ENCLAVE, request, ocall_param_vaddr);
+    retval = EAPP_PAUSE_ENCLAVE(OCALL_PAUSE_ENCLAVE, ocall_param_vaddr);
     return retval;
 }

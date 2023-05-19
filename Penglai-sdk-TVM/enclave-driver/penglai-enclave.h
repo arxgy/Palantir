@@ -221,6 +221,14 @@ typedef struct ocall_inspect_param
   unsigned long inspect_result; // VA in PE
 } ocall_inspect_param_t;
 
+typedef struct ocall_request
+{
+  unsigned long request;            // reason in PE
+  unsigned long inspect_request;    // VA in NE
+  unsigned long share_page_request; // VA in NE
+  /* todo. support more requests */
+} ocall_request_t;
+
 typedef struct ocall_request_inspect
 {
     unsigned long inspect_ptr;

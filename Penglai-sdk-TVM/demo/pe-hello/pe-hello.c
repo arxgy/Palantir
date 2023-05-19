@@ -59,20 +59,19 @@ int hello(unsigned long * args)
   }
   eapp_print("\n[pe] attestation sum: %d", sum);
 
-  /* make it a unified region, instead of type-specified */
-  ocall_request_inspect_t request_param;
-  unsigned long request_reason;
+  /* todo. make it a unified region, instead of type-specified */
+  ocall_request_t request_param;
+  ocall_request_inspect_t inspect_request_param;
+  request_param.inspect_request = (unsigned long)(&inspect_request_param);
 
   ocall_run_param_t run_param;
   int return_reason, return_value;
   run_param.run_eid = create_param.eid;
   run_param.reason_ptr = (unsigned long)(&return_reason);
   run_param.retval_ptr = (unsigned long)(&return_value);
-  run_param.request_reason = (unsigned long)(&request_reason);
   run_param.request_arg = (unsigned long)(&request_param);
-  eapp_print("[pe] request_reason [%p], request_arg [%p].\n",
-              (void *)(&request_reason),
-              (void *)(&request_param));
+  eapp_print("[pe] request_arg [%p], inspect_arg [%p].\n",
+              (void *)(&request_param), (void *)(&inspect_request_param));
   retval = eapp_run_enclave((unsigned long)(&run_param));
 
   int stop_and_destroy = 0;
@@ -85,7 +84,9 @@ int hello(unsigned long * args)
     {
       case NE_REQUEST_INSPECT:
         requested = 1;
-        eapp_print("[pe] receive NE_REQUEST_INSPECT\n");
+        int inspect_size_int = inspect_request_param.inspect_size;
+        eapp_print("[pe] receive NE_REQUEST_INSPECT with ptr [%lx] and size [%d]\n", 
+                    inspect_request_param.inspect_ptr, inspect_size_int);
         break;
       case NE_REQUEST_SHARE_PAGE:
         break;
@@ -107,8 +108,8 @@ int hello(unsigned long * args)
     // eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
     // eapp_print("[pe] try resume NE [%d]\n", run_param.run_eid);
     /* we reuse the [return reason] as [resume reason] */
-    ocall_inspect_param_t inspect_param;
-    inspect_param.inspect_eid = run_param.run_eid;
+    // ocall_inspect_param_t inspect_param;
+    // inspect_param.inspect_eid = run_param.run_eid;
     /* fill it. */
     // retval = eapp_inspect_enclave((unsigned long)(&inspect_param));
     if (retval)

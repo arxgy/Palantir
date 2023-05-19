@@ -330,7 +330,7 @@ uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args);
 uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args);
-uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t pause_reason, uintptr_t enclave_pause_args);
+uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args);
 
 // IPI
 uintptr_t ipi_stop_enclave(uintptr_t *regs, uintptr_t host_ptbr, int eid);
@@ -417,6 +417,14 @@ typedef struct ocall_inspect_param
   unsigned long reason_ptr;
   unsigned long inspect_result; // VA in PE
 } ocall_inspect_param_t;
+
+typedef struct ocall_request
+{
+  unsigned long request;            // reason in PE
+  unsigned long inspect_request;    // VA in NE
+  unsigned long share_page_request; // VA in NE
+  /* todo. support more requests */
+} ocall_request_t;
 
 typedef struct ocall_request_inspect
 {

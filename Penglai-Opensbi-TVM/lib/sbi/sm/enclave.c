@@ -2491,32 +2491,32 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   }
   sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
   
-  sbi_printf("[sm] return back to PE reason(int): %d\n", return_reason_int);
-  sbi_printf("[sm] return back to PE value(int): %d\n", return_value_int);
   sbi_printf("[sm] return back to PE reason(UL): %lu\n", return_reason);
   sbi_printf("[sm] return back to PE value(UL): %lu\n", return_value);
 
-  /* handler Request from Normal Enclave, load its request and write it into PE's running param. */
+  /* handle Request from Normal Enclave, load its request and write it into PE's running param. */
   sbi_printf("[sm] privil_run_after_resume: handling request from NE.\n");
-  uintptr_t ne_request_reason = return_reason;
   uintptr_t ne_request_arg = return_value;
+  void *ne_request_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request_arg));
+  void *pe_request_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_arg));
+  ocall_request_t *ne_request = (ocall_request_t *)ne_request_pa;
+  ocall_request_t *pe_request = (ocall_request_t *)pe_request_pa;
+  
+  sbi_printf("[sm] ne request vaddr: [%lx]\n", ne_request_arg);
+  sbi_printf("[sm] pe request vaddr: [%lx]\n", run_args.request_arg);
   if (return_reason == NE_REQUEST_INSPECT)
   { 
     /* todo. if the parameter size is too large, cross page. */
-    ocall_request_inspect_t ocall_request_local;
-    void *ne_req_arg_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request_arg));
-    void *pe_req_arg_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_arg));
-    sbi_memcpy(pe_req_arg_pa, ne_req_arg_pa, sizeof(ocall_request_inspect_t));
+    sbi_printf("[sm] ne inspect request vaddr: [%lx]\n", (ne_request->inspect_request));
+    sbi_printf("[sm] pe inspect request vaddr: [%lx]\n", (pe_request->inspect_request));
 
-    void *pe_req_reason_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_reason));
-    sbi_memcpy(pe_req_reason_pa, (void *)(&ne_request_reason), sizeof(uintptr_t));
-
-    sbi_memcpy((void *)(&ocall_request_local), ne_req_arg_pa, sizeof(ocall_request_inspect_t));
-
-    sbi_printf("[sm] ne_request_arg: [%lu]\n", ne_request_arg);
-    sbi_printf("[sm] ne_request_reason: [%lu]\n", ne_request_reason);
-    sbi_printf("[sm] run_args.request_arg: [%lu]\n", run_args.request_arg);
-    sbi_printf("[sm] run_args.request_reason: [%lu]\n", run_args.request_reason);
+    ocall_request_inspect_t ocall_inspect_req;
+    void *ne_inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->inspect_request));
+    void *pe_inspect_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->inspect_request));
+    sbi_memcpy(pe_inspect_pa, ne_inspect_pa, sizeof(ocall_request_inspect_t));
+    sbi_memcpy((void *)(&ocall_inspect_req), pe_inspect_pa, sizeof(ocall_request_inspect_t));
+    sbi_printf("[sm] pe inspect ptr [%lx] and size [%lu]\n", 
+                ocall_inspect_req.inspect_ptr, ocall_inspect_req.inspect_size);
   }
   else if (return_reason == NE_REQUEST_SHARE_PAGE)
   {
@@ -2572,8 +2572,38 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   }
   sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
 
-  sbi_printf("[sm] return back to PE reason: %d\n", return_reason_int);
-  sbi_printf("[sm] return back to PE value: %d\n", return_value_int);
+  sbi_printf("[sm] return back to PE reason(UL): %lu\n", return_reason);
+  sbi_printf("[sm] return back to PE value(UL): %lu\n", return_value);
+
+  /* handle Request from Normal Enclave, load its request and write it into PE's running param. */
+  sbi_printf("[sm] privil_run_after_resume: handling request from NE.\n");
+  uintptr_t ne_request_arg = return_value;
+  void *ne_request_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request_arg));
+  void *pe_request_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_arg));
+  ocall_request_t *ne_request = (ocall_request_t *)ne_request_pa;
+  ocall_request_t *pe_request = (ocall_request_t *)pe_request_pa;
+  
+  sbi_printf("[sm] ne request vaddr: [%lx]\n", ne_request_arg);
+  sbi_printf("[sm] pe request vaddr: [%lx]\n", run_args.request_arg);
+  if (return_reason == NE_REQUEST_INSPECT)
+  { 
+    /* todo. if the parameter size is too large, cross page. */
+    sbi_printf("[sm] ne inspect request vaddr: [%lx]\n", (ne_request->inspect_request));
+    sbi_printf("[sm] pe inspect request vaddr: [%lx]\n", (pe_request->inspect_request));
+
+    ocall_request_inspect_t ocall_inspect_req;
+    void *ne_inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->inspect_request));
+    void *pe_inspect_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->inspect_request));
+    sbi_memcpy(pe_inspect_pa, ne_inspect_pa, sizeof(ocall_request_inspect_t));
+    sbi_memcpy((void *)(&ocall_inspect_req), pe_inspect_pa, sizeof(ocall_request_inspect_t));
+    sbi_printf("[sm] pe inspect ptr [%lx] and size [%lu]\n", 
+                ocall_inspect_req.inspect_ptr, ocall_inspect_req.inspect_size);
+  }
+  else if (return_reason == NE_REQUEST_SHARE_PAGE)
+  {
+    /* todo. */
+  }
+
   return ret;
 }
 
@@ -4562,14 +4592,13 @@ out:
  * \brief This transitional function is used to pause the NE itself and return to PE.
  * 
  * \param regs The host register context.
- * \param request The request by NE.
  * \param enclave_pause_args   The pause parameter (VA)
  * 
  * \details This primitive should only be called by NE that governed by PE for now.
  * It's also explainable for pausing other legacy enclave designs, but we leave it as our future work.
  * by Ganxiang Yang @ May 17, 2023.
 */
-uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t request, uintptr_t enclave_pause_args)
+uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
 {
   struct enclave_t *enclave = NULL;
   int eid = 0;
@@ -4584,17 +4613,25 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t request, uintptr_t enc
     ret = -1UL;
     goto pause_enclave_out;
   }
-  sbi_printf("[sm] privil_pause_enclave: enclave_pause_args: [%lu]\n", enclave_pause_args);
+  sbi_printf("[sm] privil_pause_enclave: enclave_pause_args: [%lx]\n", enclave_pause_args);
   /** 
    * Copy to ocall_func_id is useless now, since we don't enter penglai_enclave_ocall.
    * Instead, we jump back to PE's handle_ocall_run_enclave.
   */
-  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, request);
+  void *pause_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_pause_args);
+  if (!pause_args)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_pause_enclave: enclave_pause_args pointer is not valid\n");
+    goto pause_enclave_out;
+  }
+  ocall_request_t *request = (ocall_request_t *)pause_args;
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, request->request);
   copy_dword_to_host((uintptr_t*)enclave->retval, (uintptr_t)enclave_pause_args);
   /** 
    * CRITICAL. 
    * We must write the x[ra] back to CSR_MEPC manually to ensure  
-   * after EAPP_PAUSE_ENCLAVE, the NE execute from what it jumps to.
+   * after EAPP_PAUSE_ENCLAVE, the NE executes from where it jumps to (JAL).
    *  by Ganxiang Yang @ May 19, 2023.
   */
   csr_write(CSR_MEPC, regs[1]);

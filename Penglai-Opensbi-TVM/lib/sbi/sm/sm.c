@@ -1174,7 +1174,7 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
       break; 
     case OCALL_PAUSE_ENCLAVE:
       // the arg1 is the VA of NE request arg
-      ret = privil_pause_enclave(regs, arg0, arg1);
+      ret = privil_pause_enclave(regs, arg0);
       break;
     default:
       ret = -1UL;
