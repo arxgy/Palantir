@@ -1,6 +1,8 @@
 #ifndef _EAPP_PRIVIL_OCALL
 #define _EAPP_PRIVIL_OCALL
 
+#define PAGE_SIZE 1 << 12
+
 #define NAME_LEN        16
 #define ELF_FILE_LEN    256
 

@@ -59,7 +59,11 @@ int hello(unsigned long * args)
   }
   eapp_print("\n[pe] attestation sum: %d", sum);
 
-  /* todo. make it a unified region, instead of type-specified */
+  char content[PAGE_SIZE];
+  memset((void *)content, 0, PAGE_SIZE);
+  ocall_inspect_param_t inspect_param;
+  inspect_param.inspect_result = (unsigned long)(content);
+
   ocall_request_t request_param;
   ocall_request_inspect_t inspect_request_param;
   request_param.inspect_request = (unsigned long)(&inspect_request_param);
@@ -87,6 +91,12 @@ int hello(unsigned long * args)
         int inspect_size_int = inspect_request_param.inspect_size;
         eapp_print("[pe] receive NE_REQUEST_INSPECT with ptr [%lx] and size [%d]\n", 
                     inspect_request_param.inspect_ptr, inspect_size_int);
+        inspect_param.inspect_eid = run_param.run_eid;
+        inspect_param.inspect_address = inspect_request_param.inspect_ptr;
+        inspect_param.inspect_size = inspect_request_param.inspect_size;
+        eapp_inspect_enclave((unsigned long)(&inspect_param));
+        eapp_print("%s", content);
+
         break;
       case NE_REQUEST_SHARE_PAGE:
         break;
@@ -108,10 +118,6 @@ int hello(unsigned long * args)
     // eapp_print("[pe] eapp_run_enclave return_reason: [%d]\n", return_reason);
     // eapp_print("[pe] try resume NE [%d]\n", run_param.run_eid);
     /* we reuse the [return reason] as [resume reason] */
-    // ocall_inspect_param_t inspect_param;
-    // inspect_param.inspect_eid = run_param.run_eid;
-    /* fill it. */
-    // retval = eapp_inspect_enclave((unsigned long)(&inspect_param));
     if (retval)
     {
       eapp_print("[pe] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);

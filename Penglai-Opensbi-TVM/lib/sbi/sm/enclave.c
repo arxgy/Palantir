@@ -2629,7 +2629,31 @@ uintptr_t privil_destroy_after_resume(struct enclave_t *enclave)
 uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspect_result, uintptr_t inspect_size)
 {
   uintptr_t ret = 0;
+  unsigned remain_page_size;
+  unsigned param_size = inspect_size;
+  sbi_printf("[sm] [privil_inspect_after_resume] param copy size: [%lu]\n", inspect_size);
   /* write data buffer back to PE. */
+  
+  void *inspect_result_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)inspect_result);
+  if (!inspect_result_pa)
+  {
+    ret = -1UL;
+    sbi_bug("[sm] [privil_inspect_after_resume] invalid inspect_result\n");
+  }
+
+  remain_page_size = PAGE_SIZE - (inspect_result & (PAGE_SIZE-1));
+  if (param_size > remain_page_size)
+  {
+    sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), remain_page_size);
+    sbi_memcpy(va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(inspect_result+remain_page_size)),
+              (void *)(enclave->kbuffer + remain_page_size),
+              param_size - remain_page_size);
+  }
+  else 
+  {
+    sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), inspect_size);  
+  }
+
   /* check on enclave */
   return ret;
 }

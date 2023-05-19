@@ -445,6 +445,10 @@ int handle_ocall_inspect_enclave(enclave_instance_t *enclave_instance, enclave_t
   ocall_inspect_param_t ocall_inspect_param_local;
   memcpy((void *)(&ocall_inspect_param_local), ocall_inspect_param_kbuf, sizeof(ocall_inspect_param_t));
   inspect_enclave = get_enclave_by_id(ocall_inspect_param_local.inspect_eid);
+  penglai_printf("[sdk driver] inspect eid (idr-layer): [%lu]\n", ocall_inspect_param_local.inspect_eid);
+  penglai_printf("[sdk driver] inspect address: [%lx]\n", ocall_inspect_param_local.inspect_address);
+  penglai_printf("[sdk driver] inspect size: [%lu]\n", ocall_inspect_param_local.inspect_size);
+  penglai_printf("[sdk driver] inspect result: [%lu]\n", ocall_inspect_param_local.inspect_result);
   if (!inspect_enclave)
   {
     penglai_eprintf("[sdk driver] target enclave [%d] cannot be accessed.\n", ocall_inspect_param_local.inspect_eid);
