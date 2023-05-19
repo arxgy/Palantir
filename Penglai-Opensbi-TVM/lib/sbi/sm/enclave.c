@@ -1058,7 +1058,7 @@ uintptr_t change_relay_page_ownership(unsigned long relay_page_addr, unsigned lo
  */
 int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 {
-  // sbi_printf("\n[sm] swap_from_host_to_enclave\n\n");
+  // sbi_printf("[sm] [swap_from_host_to_enclave] eid [%u]\n", enclave->eid);
   //grant encalve access to memory
   if(grant_enclave_access(enclave) < 0)
     return -1;
@@ -1088,7 +1088,7 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 
   //swap the mepc to transfer control to the enclave
   swap_prev_mepc(&(enclave->thread_context), csr_read(CSR_MEPC)); 
-
+  // sbi_printf("[sm] [swap_from_host_to_enclave] x[ra] [%lx], mepc [%lx]\n", host_regs[1], csr_read(CSR_MEPC));
   //set mstatus to transfer control to u mode
   uintptr_t mstatus = csr_read(CSR_MSTATUS);
   mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_U);
@@ -1111,7 +1111,7 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
  */
 int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
 {
-  // sbi_printf("\n[sm] swap_from_enclave_to_host\n\n");
+  // sbi_printf("[sm] [swap_from_enclave_to_host] eid [%u], a0[%lu]\n", enclave->eid, regs[10]);
   //retrieve enclave access to memory
   retrieve_enclave_access(enclave);
 
@@ -2229,6 +2229,7 @@ uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
   // regs[10] will be set to retval when mcall_trap return, so we have to
   // set retval to be regs[10] here to succuessfully restore context
   retval = regs[10];
+  // sbi_printf("[sm] x[a0] [%lx] | x[ra] [%lx] | mepc [%lx]\n", regs[10], regs[1], csr_read(CSR_MEPC));
 resume_from_req_out:
   release_enclave_metadata_lock();
   return retval;
@@ -4590,6 +4591,13 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t request, uintptr_t enc
   */
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, request);
   copy_dword_to_host((uintptr_t*)enclave->retval, (uintptr_t)enclave_pause_args);
+  /** 
+   * CRITICAL. 
+   * We must write the x[ra] back to CSR_MEPC manually to ensure  
+   * after EAPP_PAUSE_ENCLAVE, the NE execute from what it jumps to.
+   *  by Ganxiang Yang @ May 19, 2023.
+  */
+  csr_write(CSR_MEPC, regs[1]);
   swap_from_enclave_to_host(regs, enclave);
   enclave->state = OCALLING;
   /* We mark return value as REQUEST to distinguish it from normal OCALL. */

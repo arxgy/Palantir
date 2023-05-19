@@ -13,7 +13,10 @@ int hello(unsigned long * args)
   ocall_request_inspect_t inspect_req;
   inspect_req.inspect_ptr = (unsigned long)(content);
   inspect_req.inspect_size = (unsigned long)PAGE_SIZE;
+  eapp_print("[ne] inspect_ptr [%p]\n", (void *)content);
   eapp_pause_enclave(NE_REQUEST_INSPECT, (unsigned long)(&inspect_req));
+  eapp_print("[ne] inspect_ptr [%p]\n", (void *)content);
+  eapp_print("[ne] hello world!\n");
   EAPP_RETURN(255);
 }
 
