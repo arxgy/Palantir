@@ -21,6 +21,43 @@ typedef enum
   SHADOW_ENCLAVE = 2, 
   PRIVIL_ENCLAVE = 3
 } enclave_type_t;
+
+struct ocall_general_regs_t
+{
+  unsigned long slot;
+  unsigned long ra;
+  unsigned long sp;
+  unsigned long gp;
+  unsigned long tp;
+  unsigned long t0;
+  unsigned long t1;
+  unsigned long t2;
+  unsigned long s0;
+  unsigned long s1;
+  unsigned long a0;
+  unsigned long a1;
+  unsigned long a2;
+  unsigned long a3;
+  unsigned long a4;
+  unsigned long a5;
+  unsigned long a6;
+  unsigned long a7;
+  unsigned long s2;
+  unsigned long s3;
+  unsigned long s4;
+  unsigned long s5;
+  unsigned long s6;
+  unsigned long s7;
+  unsigned long s8;
+  unsigned long s9;
+  unsigned long s10;
+  unsigned long s11;
+  unsigned long t3;
+  unsigned long t4;
+  unsigned long t5;
+  unsigned long t6;
+};
+
 /* app-level PE create enclave param */
 typedef struct ocall_create_param
 {
@@ -58,7 +95,8 @@ typedef struct ocall_run_param
   unsigned long reason_ptr;
   unsigned long retval_ptr;
   unsigned long request_reason;  // NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
-  unsigned long request_arg;     // VA in PE
+  unsigned long request_arg;     // VA in PE, accept parameters from NE.
+  unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
 
 typedef struct ocall_inspect_param
@@ -80,11 +118,42 @@ typedef struct ocall_request
   /* todo. support more requests */
 } ocall_request_t;
 
+typedef struct ocall_response
+{
+  unsigned long request;              // reason in PE, similar with ocall_request_t
+  unsigned long inspect_response;     // VA in NE
+  unsigned long share_page_response;  // VA in NE
+} ocall_response_t;
+
 typedef struct ocall_request_inspect
 {
     unsigned long inspect_ptr;
     unsigned long inspect_size;
 } ocall_request_inspect_t;
 
+
+typedef struct ocall_request_dump 
+{ 
+  unsigned long encl_ptbr;
+  unsigned long stvec;
+  unsigned long mie;
+  unsigned long mideleg;
+  unsigned long medeleg;
+  unsigned long mepc;
+  unsigned long cache_binding;
+  struct ocall_general_regs_t state;
+} ocall_request_dump_t;
+
+/**
+ * Used by both sharer and sharee.
+ * For sharer, share_id will be neglected and auto-filled by PE.
+ * For sharee, sa
+*/
+typedef struct ocall_request_share
+{
+  unsigned long share_id;
+  unsigned long share_content_ptr;  // VA
+  unsigned long share_size_ptr;
+} ocall_request_share_t;
 
 #endif

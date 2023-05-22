@@ -11,6 +11,8 @@ all:
 	make -C seperated_filesystem_simple
 	make -C ne-hello
 	make -C pe-hello
+	make -C case-1-introspection
+	make -C case-2-sharing
 
 	#CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  mphost_normal
 
@@ -27,4 +29,6 @@ clean:
 	make -C seperated_filesystem_simple clean
 	make -C ne-hello clean
 	make -C pe-hello clean
+	make -C case-1-introspection clean
+	make -C case-2-sharing clean
 

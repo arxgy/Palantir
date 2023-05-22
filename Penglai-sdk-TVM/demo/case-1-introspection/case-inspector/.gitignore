@@ -1,0 +1,4 @@
+case-inspector
+*.dump
+*.o
+*.S

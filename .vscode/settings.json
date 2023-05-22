@@ -25,6 +25,9 @@
         "memory": "c",
         "enclave.h": "c",
         "enclave_args.h": "c",
-        "sm.h": "c"
+        "sm.h": "c",
+        "penglai-enclave.h": "c",
+        "hash_map": "c",
+        "hash_set": "c"
     }
 }

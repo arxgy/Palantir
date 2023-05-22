@@ -302,7 +302,6 @@ void sbi_trap_handler(struct sbi_trap_regs *regs)
 		msg = "misaligned store handler failed";
 		break;
 	case CAUSE_USER_ECALL:
-		sbi_printf("[sbi] trap by OCALL!\n");
 		rc  = enclave_call_trap(regs);
 		msg = "ecall handler failed";
 		break;

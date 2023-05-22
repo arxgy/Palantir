@@ -5,6 +5,11 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/hello-world/hello-world \
 	$(srcdir)/Penglai-sdk-TVM/demo/ne-hello/ne-hello \
 	$(srcdir)/Penglai-sdk-TVM/demo/pe-hello/pe-hello \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-1-introspection/case-inspector/case-inspector \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-1-introspection/case-inspectee/case-inspectee \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-share/case-share \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee/case-sharee \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharer/case-sharer \
 	$(srcdir)/Penglai-sdk-TVM/demo/relay-page/relay-page \
 	$(srcdir)/Penglai-sdk-TVM/demo/mem/mem \
 	$(srcdir)/Penglai-sdk-TVM/demo/IPC/caller/caller \
