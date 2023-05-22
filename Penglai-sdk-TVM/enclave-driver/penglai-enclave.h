@@ -72,6 +72,7 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 
 #define NE_REQUEST_INSPECT                10
 #define NE_REQUEST_SHARE_PAGE             11
+#define NE_REQUEST_ACQUIRE_PAGE           12
 
 /* OCALL codes */
 #define OCALL_MMAP                        1
@@ -244,7 +245,8 @@ typedef struct ocall_run_param
   unsigned long reason_ptr;
   unsigned long retval_ptr;
   unsigned long request_reason;  // NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
-  unsigned long request_arg;     // VA in PE
+  unsigned long request_arg;     // VA in PE, accept parameters from NE.
+  unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
 
 typedef struct ocall_inspect_param
@@ -282,6 +284,19 @@ typedef struct ocall_request_dump
   unsigned long cache_binding;
   struct ocall_general_regs_t state;
 } ocall_request_dump_t;
+
+/**
+ * Used by both sharer and sharee.
+ * For sharer, eid & share_id will be neglected and auto-filled by PE.
+ * For sharee, eid & share_id is required to specify which page that sharee needs.
+*/
+typedef struct ocall_request_share
+{
+  unsigned long eid;
+  unsigned long share_id;
+  unsigned long share_content_ptr;  // VA
+  unsigned long share_size;
+} ocall_request_share_t;
 
 enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type);
 int destroy_enclave(enclave_t* enclave);

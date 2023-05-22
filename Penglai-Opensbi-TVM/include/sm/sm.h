@@ -56,6 +56,7 @@
 /* Enclave request reason */
 #define NE_REQUEST_INSPECT                10
 #define NE_REQUEST_SHARE_PAGE             11
+#define NE_REQUEST_ACQUIRE_PAGE           12
 
 //Function id of resume reason
 #define RESUME_FROM_TIMER_IRQ    0

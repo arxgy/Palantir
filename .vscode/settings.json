@@ -28,6 +28,9 @@
         "sm.h": "c",
         "penglai-enclave.h": "c",
         "hash_map": "c",
-        "hash_set": "c"
+        "hash_set": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c"
     }
 }

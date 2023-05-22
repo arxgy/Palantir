@@ -441,8 +441,9 @@ typedef struct ocall_run_param
   int resume_reason;  // let sdk read (RDONLY), sync with *reason_ptr.
   unsigned long reason_ptr;
   unsigned long retval_ptr;
-  unsigned long request_reason;  // VA in PE, NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
-  unsigned long request_arg;     // VA in PE
+  unsigned long request_reason;  // NE_REQUEST_INSPECT, NE_REQUEST_SHARE_PAGE, ...
+  unsigned long request_arg;     // VA in PE, accept parameters from NE.
+  unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
 
 typedef struct ocall_inspect_param
@@ -480,5 +481,18 @@ typedef struct ocall_request_dump
   unsigned long cache_binding;
   struct ocall_general_regs_t state;
 } ocall_request_dump_t;
+
+/**
+ * Used by both sharer and sharee.
+ * For sharer, eid & share_id will be neglected and auto-filled by PE.
+ * For sharee, eid & share_id is required to specify which page that sharee needs.
+*/
+typedef struct ocall_request_share
+{
+  unsigned long eid;
+  unsigned long share_id;
+  unsigned long share_content_ptr;  // VA
+  unsigned long share_size;
+} ocall_request_share_t;
 
 #endif /* _ENCLAVE_H */

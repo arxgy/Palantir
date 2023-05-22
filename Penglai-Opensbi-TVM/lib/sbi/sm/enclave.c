@@ -2446,7 +2446,7 @@ out:
  * \brief Accept the reason of NE, resume its parent PE.
  * 
  * \param enclave The enclave structure.
- * \param return_reason The reason why Normal Enclave stop/crash (IRQ, Relay Page, ...)
+ * \param return_reason The reason why Normal Enclave stop/crash (IRQ, Share Page, ...)
  * \param return_value The NE process's return value.
  * 
  * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
@@ -2514,11 +2514,27 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
     void *ne_inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->inspect_request));
     void *pe_inspect_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->inspect_request));
     sbi_memcpy(pe_inspect_pa, ne_inspect_pa, sizeof(ocall_request_inspect_t));
+
     sbi_memcpy((void *)(&ocall_inspect_req), pe_inspect_pa, sizeof(ocall_request_inspect_t));
     sbi_printf("[sm] pe inspect ptr [%lx] and size [%lu]\n", 
                 ocall_inspect_req.inspect_ptr, ocall_inspect_req.inspect_size);
   }
   else if (return_reason == NE_REQUEST_SHARE_PAGE)
+  {
+    /* todo. */
+    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
+    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
+
+    ocall_request_share_t ocall_share_req;
+    void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
+    void *pe_share_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->share_page_request));
+    sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
+    
+    sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
+    sbi_printf("[sm] ne share ptr [%lx] and size [%lu]\n", 
+                ocall_share_req.share_content_ptr, ocall_share_req.share_size);
+  }
+  else if (return_reason == NE_REQUEST_ACQUIRE_PAGE)
   {
     /* todo. */
   }
@@ -2530,7 +2546,7 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
  * \brief Accept the reason of NE, resume its parent PE.
  * 
  * \param enclave The enclave structure.
- * \param return_reason The reason why Normal Enclave stop/crash (IRQ, Relay Page, ...)
+ * \param return_reason The reason why Normal Enclave stop/crash (IRQ, Share Page, ...)
  * \param return_value The NE process's return value.
  * 
  * \details The whole function is locked, so don't need to update target enclave state as ATTESTING.
@@ -2600,6 +2616,21 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
                 ocall_inspect_req.inspect_ptr, ocall_inspect_req.inspect_size);
   }
   else if (return_reason == NE_REQUEST_SHARE_PAGE)
+  {
+    /* todo. */
+    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
+    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
+
+    ocall_request_share_t ocall_share_req;
+    void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
+    void *pe_share_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->share_page_request));
+    sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
+    
+    sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
+    sbi_printf("[sm] ne share ptr [%lx] and size [%lu]\n", 
+                ocall_share_req.share_content_ptr, ocall_share_req.share_size);
+  }
+  else if (return_reason == NE_REQUEST_ACQUIRE_PAGE)
   {
     /* todo. */
   }
@@ -4649,8 +4680,8 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
     sbi_bug("M mode: privil_pause_enclave: enclave_pause_args pointer is not valid\n");
     goto pause_enclave_out;
   }
-  ocall_request_t *request = (ocall_request_t *)pause_args;
-  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, request->request);
+  ocall_request_t *ocall_request = (ocall_request_t *)pause_args;
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, ocall_request->request);
   copy_dword_to_host((uintptr_t*)enclave->retval, (uintptr_t)enclave_pause_args);
   /** 
    * CRITICAL. 

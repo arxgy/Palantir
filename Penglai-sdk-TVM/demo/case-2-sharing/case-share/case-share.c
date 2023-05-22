@@ -18,16 +18,40 @@
 #include <unistd.h>
 #define DEFAULT_STACK_SIZE  64*1024
 #define NE_NUMBER 2
+/* too large SHARE_LIMIT cause mmap error, out-of-scope */
+#define SHARE_LIMIT 1 << 4
+/* A better allocation method is required. */
+typedef struct share_record
+{
+  int eid;  // idr-layer, owner of the page.
+  int share_id;
+  unsigned long vaddr;
+  unsigned long size;
+} share_record_t;
+
 
 int ne_scheduler(int prev)
 {
   return prev ? 0 : 1;
 }
+
+int share_id_alloc(int *prev)
+{
+  return ++(*prev);
+}
+
 int hello(unsigned long * args)
 {
-  // selector: 0: sender; 1: recver.
-  int retval = 0, requested = 0, i = 0, single_thread = 0, prev = 0;
+  int retval = 0, prev = 0;
+  int requested = 0, i = 0, single_thread = 0, thread_init = 0;
+
   char *elf_file_names[NE_NUMBER] = {"/root/case-sharer", "/root/case-sharee"};
+  int share_id_counts[NE_NUMBER];
+  memset(share_id_counts, 0, sizeof(int)*NE_NUMBER);
+  share_record_t share_records[SHARE_LIMIT];
+  memset(share_records, 0, SHARE_LIMIT*sizeof(share_record_t));
+  int share_record_count = 0;
+
   ocall_create_param_t create_params[NE_NUMBER];
   for (i = 0 ; i < NE_NUMBER ; i++)
   { 
@@ -45,30 +69,37 @@ int hello(unsigned long * args)
       eapp_print("eapp_create_enclave failed: %d\n",retval);
     }
     eapp_print("Allocated [%d]-th NORMAL ENCLAVE eid: [%d]\n", i, create_params[i].eid);
+    share_id_counts[i] = 0;
   }
   int return_reasons[NE_NUMBER], return_values[NE_NUMBER];
   ocall_run_param_t run_params[NE_NUMBER];
   ocall_request_t request_params[NE_NUMBER];
+  ocall_request_inspect_t inspect_params[NE_NUMBER];
+  ocall_request_share_t share_params[NE_NUMBER];
+
   for (i = 0; i < NE_NUMBER ; i++)
   {
     run_params[i].run_eid = create_params[i].eid;
     run_params[i].reason_ptr = (unsigned long)(&(return_reasons[i]));
     run_params[i].retval_ptr = (unsigned long)(&(return_values[i]));
     run_params[i].request_arg = (unsigned long)(&(request_params[i]));
+    request_params[i].inspect_request = (unsigned long)(&(inspect_params[i]));
+    request_params[i].share_page_request = (unsigned long)(&(share_params[i]));
   }
 
   int init_run[NE_NUMBER];
   memset(init_run, 0, NE_NUMBER*sizeof(int));
 
-  /* build a better scheduler in future */
-  /* i: next run NE. prev: previous run NE. */
+  /* todo. build a better scheduler for [#thread > 2] in future */
   i = 0;
   while (retval == 0)
   {
+    thread_init = 0;
     requested = 0;
     if (!init_run[i])
     {
       retval = eapp_run_enclave((unsigned long)(&(run_params[i])));
+      thread_init = 1;
       init_run[i] = 1;
       if (retval)
       {
@@ -77,9 +108,10 @@ int hello(unsigned long * args)
       }
     }
     prev = i;
-    
+    eapp_print("[pe] previous run thread: %d\n", prev);
     if (return_reasons[prev] == RETURN_USER_EXIT_ENCL)
     {
+      eapp_print("[pe] thread: %d exit!\n", prev);
       /* print here. */
       if (single_thread)
         break;
@@ -89,17 +121,37 @@ int hello(unsigned long * args)
         single_thread = 1;
       }
     }
-
     switch (return_reasons[prev])
     {
       case NE_REQUEST_SHARE_PAGE:
+        requested = 1;
+        /* complete the share_param and display */
+        share_params[prev].eid = create_params[prev].eid;
+        share_params[prev].share_id = share_id_alloc((int *)(&(share_params[prev].share_id)));
+        int share_size_int = share_params[prev].share_size;
+        int share_eid_int = share_params[prev].eid;
+        int share_id_int = share_params[prev].share_id;
+        eapp_print("[pe] receive [%d] NE_REQUEST_SHARE_PAGE with ptr [%lx] and size [%d]. Alloc page [%d]\n", 
+                    share_eid_int,
+                    share_params[prev].share_content_ptr, 
+                    share_params[prev].share_size, 
+                    share_id_int);
+        /* add/copy the share page message to record */
+        ++share_id_counts[prev];
+        ++share_record_count;
+        share_records[share_record_count].eid = share_params[prev].eid;
+        share_records[share_record_count].share_id = share_id_counts[prev];
+        share_records[share_record_count].vaddr = share_params[prev].share_content_ptr;
+        share_records[share_record_count].size = share_params[prev].share_size;
+        /* fill inspect param, do inspection */
+        break;
+      case NE_REQUEST_ACQUIRE_PAGE:
         requested = 1;
         /* todo. */
         break;
       default:
         break;
     }
-
     // save previous NE pause reason.
     run_params[prev].resume_reason = return_reasons[prev];
     if (requested)
@@ -111,6 +163,8 @@ int hello(unsigned long * args)
     if (!single_thread)
       i = ne_scheduler(prev);
     
+    if (thread_init)
+      continue;
     retval = eapp_resume_enclave((unsigned long)(&(run_params[i])));
   }
   eapp_print("[pe] hello world!\n");

@@ -13,6 +13,7 @@
 
 #define NE_REQUEST_INSPECT                10
 #define NE_REQUEST_SHARE_PAGE             11
+#define NE_REQUEST_ACQUIRE_PAGE           12
 /* todo: host-level update */
 typedef enum
 {
@@ -146,14 +147,15 @@ typedef struct ocall_request_dump
 
 /**
  * Used by both sharer and sharee.
- * For sharer, share_id will be neglected and auto-filled by PE.
- * For sharee, sa
+ * For sharer, eid & share_id will be neglected and auto-filled by PE.
+ * For sharee, eid & share_id is required to specify which page that sharee needs.
 */
 typedef struct ocall_request_share
 {
+  unsigned long eid;
   unsigned long share_id;
   unsigned long share_content_ptr;  // VA
-  unsigned long share_size_ptr;
+  unsigned long share_size;
 } ocall_request_share_t;
 
 #endif
