@@ -49,6 +49,12 @@ int hello(unsigned long * args)
   eapp_print("[ne] [sharer] share_ptr [%p]\n", (void *)content);
   eapp_pause_enclave((unsigned long)(&req));
   eapp_print("%s", content);
+  iter = 0;
+  while (iter < 1 << 20)
+  {
+    iter++;
+  }
+  
   eapp_print("[ne] [sharer] hello world!\n");
   EAPP_RETURN(255);
 }

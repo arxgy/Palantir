@@ -11,8 +11,32 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAGIC_PEER_EID 4097
+#define MAGIC_PAGE_ID  1
 int hello(unsigned long * args)
 {
+  char content[PAGE_SIZE];
+  memset((void *)content, 0, PAGE_SIZE);
+  
+  ocall_request_share_t share_req;
+  share_req.eid = MAGIC_PEER_EID;
+  share_req.share_id = MAGIC_PAGE_ID;
+  share_req.share_content_ptr = (unsigned long)(content);
+  share_req.share_size = PAGE_SIZE;
+
+  ocall_request_t req;
+  req.request = NE_REQUEST_ACQUIRE_PAGE;
+  req.inspect_request = NULL;
+  req.share_page_request = (unsigned long)(&share_req);
+
+  int iter = 0;
+  while (iter < 1  << 20)
+  {
+    iter++;
+  }
+  
+  eapp_pause_enclave((unsigned long)(&req));
+  eapp_print("%s", content);
   eapp_print("[ne] [sharee] hello world!\n");
   EAPP_RETURN(127);
 }

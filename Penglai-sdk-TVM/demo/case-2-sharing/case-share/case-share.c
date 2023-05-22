@@ -77,6 +77,12 @@ int hello(unsigned long * args)
   ocall_request_inspect_t inspect_params[NE_NUMBER];
   ocall_request_share_t share_params[NE_NUMBER];
 
+  /* This variable is used for do memory introspection by PE. */
+  ocall_inspect_param_t ocall_inspect_param_local;
+  char inspect_content[PAGE_SIZE];
+  memset(inspect_content, 0, PAGE_SIZE);
+  ocall_inspect_param_local.inspect_result = (unsigned long)(inspect_content);
+
   for (i = 0; i < NE_NUMBER ; i++)
   {
     run_params[i].run_eid = create_params[i].eid;
@@ -123,11 +129,15 @@ int hello(unsigned long * args)
     }
     switch (return_reasons[prev])
     {
+      case NE_REQUEST_INSPECT:
+        /* We don't perform any service in this case study. */
+        break;
       case NE_REQUEST_SHARE_PAGE:
+        /* NE provides vaddr & size */
         requested = 1;
         /* complete the share_param and display */
         share_params[prev].eid = create_params[prev].eid;
-        share_params[prev].share_id = share_id_alloc((int *)(&(share_params[prev].share_id)));
+        share_params[prev].share_id = share_id_alloc((int *)(&(share_id_counts[prev])));
         int share_size_int = share_params[prev].share_size;
         int share_eid_int = share_params[prev].eid;
         int share_id_int = share_params[prev].share_id;
@@ -137,17 +147,56 @@ int hello(unsigned long * args)
                     share_params[prev].share_size, 
                     share_id_int);
         /* add/copy the share page message to record */
-        ++share_id_counts[prev];
-        ++share_record_count;
         share_records[share_record_count].eid = share_params[prev].eid;
-        share_records[share_record_count].share_id = share_id_counts[prev];
+        share_records[share_record_count].share_id = share_params[prev].share_id;
         share_records[share_record_count].vaddr = share_params[prev].share_content_ptr;
         share_records[share_record_count].size = share_params[prev].share_size;
-        /* fill inspect param, do inspection */
+        ++share_record_count;
         break;
       case NE_REQUEST_ACQUIRE_PAGE:
+        /* NE provides eid & share_id */
         requested = 1;
         /* todo. */
+        eapp_print("[sm] NE_REQUEST_ACQUIRE_PAGE: target eid [%lx], share_id [%lx].\n", 
+                    share_params[prev].eid,
+                    share_params[prev].share_id);
+        int iter = 0, found = 0, share_idx = 0;
+        for (iter = 0; iter < SHARE_LIMIT ; iter++)
+        {
+          if (share_records[iter].eid == share_params[prev].eid && 
+              share_records[iter].share_id == share_params[prev].share_id)
+          {
+            share_idx = iter;
+            found = 1;
+            break;
+          }
+        }
+        if (!found)
+          eapp_print("[pe] [ERROR] cannot find target shared page.\n");
+        /* fill inspect param, do inspection */
+        /* This check might be redundant */
+        int eid_int = share_params[prev].eid;
+        eapp_print("[pe] share_params[prev].eid: [%d]", eid_int);
+        found = 0;
+        for (iter = 0; iter < NE_NUMBER ; iter++)
+        {
+          eid_int = create_params[iter].eid;
+          eapp_print("[pe] create_params[%d].eid: [%d].\n", iter, eid_int);
+          if (create_params[iter].eid == share_params[prev].eid)
+          {
+            found = 1;
+            break;
+          }
+        }
+        if (!found)
+          eapp_print("[pe] [ERROR] cannot find target peer Normal Enclave.\n");
+        ocall_inspect_param_local.inspect_eid = share_params[prev].eid;
+        ocall_inspect_param_local.inspect_address = share_records[share_idx].vaddr;
+        ocall_inspect_param_local.inspect_size = share_records[share_idx].size;
+        eapp_inspect_enclave((unsigned long)(&ocall_inspect_param_local));
+        // eapp_print("[pe] after eapp_inspect_enclave\n");
+        // inspect_content[PAGE_SIZE-1] = '\0';
+        eapp_print("%s", inspect_content);
         break;
       default:
         break;

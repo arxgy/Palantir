@@ -1088,7 +1088,7 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 
   //swap the mepc to transfer control to the enclave
   swap_prev_mepc(&(enclave->thread_context), csr_read(CSR_MEPC)); 
-  // sbi_printf("[sm] [swap_from_host_to_enclave] x[ra] [%lx], mepc [%lx]\n", host_regs[1], csr_read(CSR_MEPC));
+  sbi_printf("[sm] [swap_from_host_to_enclave] x[ra] [%lx], mepc [%lx]\n", host_regs[1], csr_read(CSR_MEPC));
   //set mstatus to transfer control to u mode
   uintptr_t mstatus = csr_read(CSR_MSTATUS);
   mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_U);
@@ -2537,6 +2537,17 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   else if (return_reason == NE_REQUEST_ACQUIRE_PAGE)
   {
     /* todo. */
+    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
+    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
+
+    ocall_request_share_t ocall_share_req;
+    void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
+    void *pe_share_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->share_page_request));
+    sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
+    
+    sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
+    sbi_printf("[sm] ne share eid [%lx] and share_id [%lu]\n", 
+                ocall_share_req.eid, ocall_share_req.share_id);
   }
 
   return ret;
@@ -2633,6 +2644,17 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   else if (return_reason == NE_REQUEST_ACQUIRE_PAGE)
   {
     /* todo. */
+    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
+    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
+
+    ocall_request_share_t ocall_share_req;
+    void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
+    void *pe_share_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->share_page_request));
+    sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
+    
+    sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
+    sbi_printf("[sm] ne share eid [%lx] and share_id [%lu]\n", 
+                ocall_share_req.eid, ocall_share_req.share_id);
   }
 
   return ret;
@@ -2676,6 +2698,11 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   if (param_size > remain_page_size)
   {
     sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), remain_page_size);
+    if (!va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(inspect_result+remain_page_size)))
+    {
+      ret = -1UL;
+      sbi_bug("[sm] ERROR: next page is NULL/invalid.\n");
+    }
     sbi_memcpy(va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(inspect_result+remain_page_size)),
               (void *)(enclave->kbuffer + remain_page_size),
               param_size - remain_page_size);
@@ -2684,7 +2711,7 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   {
     sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), inspect_size);  
   }
-
+  sbi_printf("[sm] out of [privil_inspect_after_resume]\n");
   /* check on enclave */
   return ret;
 }
@@ -4635,6 +4662,7 @@ uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_inspect_args);
 
+  csr_write(CSR_MEPC, regs[1]);
   swap_from_enclave_to_host(regs, enclave);
   enclave->state = OCALLING;
   ret = ENCLAVE_OCALL;
