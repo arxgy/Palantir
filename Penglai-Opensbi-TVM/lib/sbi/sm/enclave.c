@@ -3215,6 +3215,13 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
     {
       sbi_memcpy(ne_content_pa, (void *)(tgt_enclave->kbuffer), share_size);
     }
+    int iter = 0;
+    sbi_printf("[sm] start printing kbuffer.\n");
+    for (iter = 0; iter < share_size ; iter++)
+    {
+      sbi_printf("%c", (char)(*((char *)(tgt_enclave->kbuffer+iter))));
+    }
+    sbi_printf("\n");
   } 
   else 
   {

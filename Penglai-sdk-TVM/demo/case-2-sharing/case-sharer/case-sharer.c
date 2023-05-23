@@ -12,7 +12,8 @@
 
 int hello(unsigned long * args)
 {
-  char content[PAGE_SIZE];
+  char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
+  // char content[PAGE_SIZE];
   memset((void *)content, 0, PAGE_SIZE);
   int iter = 0;
   for (iter = 0 ; iter < PAGE_SIZE ; iter++)
@@ -47,8 +48,11 @@ int hello(unsigned long * args)
   eapp_print("[ne] [sharer] request_arg [%p], share_arg [%p].\n",
               (void *)(&req), (void *)(&share_req));
   eapp_print("[ne] [sharer] share_ptr [%p]\n", (void *)content);
+  eapp_print("%s\n", content);
+  eapp_print("%s\n", content+2049);
   eapp_pause_enclave((unsigned long)(&req));
-  eapp_print("%s", content);
+
+  /* similuating do other things. */
   iter = 0;
   while (iter < 1 << 22)
   {

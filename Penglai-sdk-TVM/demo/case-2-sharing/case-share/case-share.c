@@ -81,7 +81,8 @@ int hello(unsigned long * args)
   ocall_response_share_t share_responses[NE_NUMBER];
   /* This variable is used for do memory introspection by PE. */
   ocall_inspect_param_t ocall_inspect_param_local;
-  char inspect_content[PAGE_SIZE];
+  char *inspect_content = (char *)eapp_mmap(NULL, PAGE_SIZE);
+  // char inspect_content[PAGE_SIZE];
   memset(inspect_content, 0, PAGE_SIZE);
   ocall_inspect_param_local.inspect_result = (unsigned long)(inspect_content);
 

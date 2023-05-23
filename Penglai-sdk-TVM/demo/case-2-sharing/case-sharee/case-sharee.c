@@ -15,7 +15,8 @@
 #define MAGIC_PAGE_ID  1
 int hello(unsigned long * args)
 {
-  char content[PAGE_SIZE];
+  char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
+  // char content[PAGE_SIZE];
   memset((void *)content, 0, PAGE_SIZE);
   
   ocall_request_share_t share_req;
@@ -37,7 +38,7 @@ int hello(unsigned long * args)
   }
   
   eapp_pause_enclave((unsigned long)(&req));
-  eapp_print("%s", content);
+  eapp_print("%s", content+2048);
   eapp_print("[ne] [sharee] hello world!\n");
   EAPP_RETURN(127);
 }
