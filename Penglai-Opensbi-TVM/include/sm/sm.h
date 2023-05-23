@@ -23,6 +23,7 @@
 #define SBI_DESTROY_SERVER_ENCLAVE        89
 #define SBI_DESTROY_SHADOW_ENCLAVE        79
 
+#define SBI_RESPONSE_ENCLAVE          	  72
 #define SBI_INSPECT_ENCLAVE           	  70
 
 #define SBI_SM_DEBUG_PRINT               88
@@ -170,6 +171,7 @@ uintptr_t sm_resume_enclave(uintptr_t *regs, uintptr_t enclave_id, uintptr_t res
 uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id);
 // PE-related operations
 uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
+uintptr_t sm_response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg);
 
 // Server enclave-related operations
 uintptr_t sm_create_server_enclave(uintptr_t enclave_create_args);

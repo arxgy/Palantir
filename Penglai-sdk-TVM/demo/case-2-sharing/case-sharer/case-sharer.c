@@ -50,7 +50,7 @@ int hello(unsigned long * args)
   eapp_pause_enclave((unsigned long)(&req));
   eapp_print("%s", content);
   iter = 0;
-  while (iter < 1 << 20)
+  while (iter < 1 << 22)
   {
     iter++;
   }

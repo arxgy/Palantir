@@ -28,6 +28,7 @@ int hello(unsigned long * args)
   req.request = NE_REQUEST_ACQUIRE_PAGE;
   req.inspect_request = NULL;
   req.share_page_request = (unsigned long)(&share_req);
+  eapp_print("[ne] [sharee] dest_ptr [%lx]\n", (unsigned long)(content));
 
   int iter = 0;
   while (iter < 1  << 20)

@@ -288,6 +288,13 @@ typedef struct ocall_request
   /* todo. support more requests */
 } ocall_request_t;
 
+typedef struct ocall_response
+{
+  unsigned long request;              // reason in PE, similar with ocall_request_t. 0 means do nothing.
+  unsigned long inspect_response;     // VA in NE
+  unsigned long share_page_response;  // VA in NE
+} ocall_response_t;
+
 typedef struct ocall_request_inspect
 {
     unsigned long inspect_ptr;
@@ -318,5 +325,12 @@ typedef struct ocall_request_share
   unsigned long share_content_ptr;  // VA
   unsigned long share_size;
 } ocall_request_share_t;
+
+typedef struct ocall_response_share
+{
+  unsigned long src_ptr;  // VA in PE
+  unsigned long dest_ptr; // VA in NE
+  unsigned long share_size;
+} ocall_response_share_t;
 
 #endif

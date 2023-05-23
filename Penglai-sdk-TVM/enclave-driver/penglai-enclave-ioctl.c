@@ -683,9 +683,7 @@ resume_for_rerun:
       ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_REQUEST);
     }
     else{
-      printk("[sdk driver] [penglai_enclave_ocall]\n");
       ret = penglai_enclave_ocall(enclave_instance, enclave, resume_id, enclave_param->isShadow);  
-      printk("[sdk driver] return from [penglai_enclave_ocall]\n");
     }
   }
   printk("[sdk driver] [OUT LOOP]\n");

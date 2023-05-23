@@ -270,6 +270,7 @@ uintptr_t stop_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t wake_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
+uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg);
 
 // Shadow encalve related operations
 uintptr_t create_shadow_enclave(enclave_create_param_t create_args);
@@ -464,6 +465,13 @@ typedef struct ocall_request
   /* todo. support more requests */
 } ocall_request_t;
 
+typedef struct ocall_response
+{
+  unsigned long request;              // reason in PE, similar with ocall_request_t. 0 means do nothing.
+  unsigned long inspect_response;     // VA in NE
+  unsigned long share_page_response;  // VA in NE
+} ocall_response_t;
+
 typedef struct ocall_request_inspect
 {
     unsigned long inspect_ptr;
@@ -494,5 +502,12 @@ typedef struct ocall_request_share
   unsigned long share_content_ptr;  // VA
   unsigned long share_size;
 } ocall_request_share_t;
+
+typedef struct ocall_response_share
+{
+  unsigned long src_ptr;  // VA in PE
+  unsigned long dest_ptr; // VA in NE
+  unsigned long share_size;
+} ocall_response_share_t;
 
 #endif /* _ENCLAVE_H */

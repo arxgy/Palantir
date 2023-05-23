@@ -348,6 +348,8 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   switch (ocall_resume_param_local->resume_reason)
   {
     case RETURN_USER_NE_REQUEST:
+      penglai_printf("[sdk driver] eid [%lu] do [SBI_SM_RESPONSE_ENCLAVE]\n", resume_id);
+      ret = SBI_PENGLAI_3(SBI_SM_RESPONSE_ENCLAVE, resume_enclave->eid, resume_id, ocall_resume_param_local->response_arg);
     case RETURN_USER_NE_IRQ:
       return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
       if (return_reason < 0)

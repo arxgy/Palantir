@@ -1088,7 +1088,7 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 
   //swap the mepc to transfer control to the enclave
   swap_prev_mepc(&(enclave->thread_context), csr_read(CSR_MEPC)); 
-  sbi_printf("[sm] [swap_from_host_to_enclave] x[ra] [%lx], mepc [%lx]\n", host_regs[1], csr_read(CSR_MEPC));
+  // sbi_printf("[sm] [swap_from_host_to_enclave] x[ra] [%lx], mepc [%lx]\n", host_regs[1], csr_read(CSR_MEPC));
   //set mstatus to transfer control to u mode
   uintptr_t mstatus = csr_read(CSR_MSTATUS);
   mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_U);
@@ -2219,6 +2219,8 @@ uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
     goto resume_from_req_out;
   }
 
+  /* do response */
+
   if(swap_from_host_to_enclave(regs, enclave) < 0)
   {
     sbi_bug("M mode: resume_from_request: enclave can not be resume\n");
@@ -3101,6 +3103,127 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspec
   }
 inspect_enclave_out:
   release_enclave_metadata_lock();
+  return retval;
+}
+
+/**
+ * \brief Host calls this function to respond a NE request.
+ * 
+ * \param tgt_eid The NE eid. (slab-layer)
+ * \param src_eid The PE eid. (slab-layer)
+ * \param response_arg The start VA address of PE's response arg.
+ */
+uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg)
+{
+  uintptr_t retval = 0;
+  uintptr_t src_ptr, tgt_ptr;
+  unsigned share_size;
+  unsigned remain_page_size;
+  struct enclave_t *tgt_enclave = NULL;
+  struct enclave_t *src_enclave = NULL;
+  acquire_enclave_metadata_lock();
+
+  tgt_enclave = __get_enclave(tgt_eid);
+  if (!tgt_enclave || tgt_enclave->state < FRESH || 
+       tgt_enclave->parent_eid != src_eid || 
+       tgt_enclave->type != NORMAL_ENCLAVE)
+  {
+    sbi_bug("M mode: response_enclave: target enclave%lu can not be accessed\n", tgt_eid);
+    retval = -1UL;
+    goto response_enclave_out;
+  }
+  src_enclave = __get_enclave(src_eid);
+  if (!src_enclave || src_enclave->state != OCALLING || 
+       src_enclave->parent_eid != NULL_EID || 
+       src_enclave->type != PRIVIL_ENCLAVE)
+  {
+    sbi_bug("M mode: response_enclave: source enclave%lu can not be accessed\n", src_eid);
+    retval = -1UL;
+    goto response_enclave_out;
+  }
+  /* lazy -> risky */
+  void *response_arg_pa = va_to_pa((uintptr_t *)(src_enclave->root_page_table), (void *)response_arg);
+  if (!response_arg_pa)
+  {
+    sbi_bug("M mode: response_enclave: response_arg_pa [%p] can not be accessed\n", response_arg_pa);
+    retval = -1UL;
+    goto response_enclave_out;
+  }
+  ocall_response_t *ocall_response_local = (ocall_response_t *)(response_arg_pa);
+  sbi_printf("[sm] [response_enclave]: tgt_eid (NE) [%lu], src_eid (PE) [%lu], response_arg[%lx], request(detailed) [%lu]\n",
+              tgt_eid, src_eid, response_arg, ocall_response_local->request);
+  if (ocall_response_local->request == NE_REQUEST_ACQUIRE_PAGE)
+  {
+    sbi_printf("[sm] response to [NE_REQUEST_ACQUIRE_PAGE]\n");
+    void *share_response_pa = va_to_pa((uintptr_t *)(src_enclave->root_page_table), 
+                                       (void *)(ocall_response_local->share_page_response));
+    if (!share_response_pa)
+    {
+      sbi_bug("M mode: response_enclave: share_response_pa [%p] can not be accessed\n", share_response_pa);
+      retval = -1UL;
+      goto response_enclave_out;
+    }
+
+    ocall_response_share_t *share_response_local = (ocall_response_share_t *)(share_response_pa);
+    sbi_printf("[sm] share src (VA)[%lx], share dest [%lx], share_size [%lx]\n", 
+                share_response_local->src_ptr,
+                share_response_local->dest_ptr,
+                share_response_local->share_size);
+    
+    share_size = share_response_local->share_size;
+    /* first we copy to tgt_enclave kbuffer */
+    src_ptr = share_response_local->src_ptr;
+    void *pe_content_pa = va_to_pa((uintptr_t *)(src_enclave->root_page_table), (void *)(src_ptr));
+    if (!pe_content_pa)
+    {
+      sbi_bug("M mode: response_enclave: pe_content_pa [%p] can not be accessed\n", pe_content_pa);
+      retval = -1UL;
+      goto response_enclave_out;
+    }
+    remain_page_size = PAGE_SIZE - (src_ptr & (PAGE_SIZE-1));
+    if (share_size > remain_page_size)
+    {
+      copy_to_host((void *)(tgt_enclave->kbuffer), pe_content_pa, remain_page_size);
+      copy_to_host((void *)(tgt_enclave->kbuffer+remain_page_size), 
+                   va_to_pa((uintptr_t *)(src_enclave->root_page_table), (void *)(src_ptr+remain_page_size)),
+                   share_size - remain_page_size);
+    }
+    else 
+    {
+      copy_to_host((void *)(tgt_enclave->kbuffer), pe_content_pa, share_size);
+    }
+
+    /* then we copy content back to NE destination */
+    tgt_ptr = share_response_local->dest_ptr;
+    void *ne_content_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(tgt_ptr));
+    if (!ne_content_pa)
+    {
+      sbi_bug("M mode: response_enclave: ne_content_pa [%p] can not be accessed\n", ne_content_pa);
+      retval = -1UL;
+      goto response_enclave_out;
+    }
+    remain_page_size = PAGE_SIZE - (tgt_ptr & (PAGE_SIZE-1));
+    // sbi_printf("[sm] [response_enclave] remain_page_size: [%lu]\n", remain_page_size);
+    if (share_size > remain_page_size)
+    {
+      sbi_memcpy(ne_content_pa, (void *)(tgt_enclave->kbuffer), remain_page_size);
+      sbi_memcpy(va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(tgt_ptr+remain_page_size)),
+                 (void *)(tgt_enclave->kbuffer + remain_page_size), 
+                 share_size - remain_page_size);
+    }
+    else 
+    {
+      sbi_memcpy(ne_content_pa, (void *)(tgt_enclave->kbuffer), share_size);
+    }
+  } 
+  else 
+  {
+    /* do extension in future. */
+  }
+
+response_enclave_out:
+  release_enclave_metadata_lock();
+  sbi_printf("[sm] exit response_enclave\n");
   return retval;
 }
 
@@ -4662,7 +4785,6 @@ uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_inspect_args);
 
-  csr_write(CSR_MEPC, regs[1]);
   swap_from_enclave_to_host(regs, enclave);
   enclave->state = OCALLING;
   ret = ENCLAVE_OCALL;
@@ -4711,13 +4833,7 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
   ocall_request_t *ocall_request = (ocall_request_t *)pause_args;
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, ocall_request->request);
   copy_dword_to_host((uintptr_t*)enclave->retval, (uintptr_t)enclave_pause_args);
-  /** 
-   * CRITICAL. 
-   * We must write the x[ra] back to CSR_MEPC manually to ensure  
-   * after EAPP_PAUSE_ENCLAVE, the NE executes from where it jumps to (JAL).
-   *  by Ganxiang Yang @ May 19, 2023.
-  */
-  csr_write(CSR_MEPC, regs[1]);
+
   swap_from_enclave_to_host(regs, enclave);
   enclave->state = OCALLING;
   /* We mark return value as REQUEST to distinguish it from normal OCALL. */

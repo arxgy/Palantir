@@ -74,9 +74,11 @@ int hello(unsigned long * args)
   int return_reasons[NE_NUMBER], return_values[NE_NUMBER];
   ocall_run_param_t run_params[NE_NUMBER];
   ocall_request_t request_params[NE_NUMBER];
+  ocall_response_t response_params[NE_NUMBER];
   ocall_request_inspect_t inspect_params[NE_NUMBER];
   ocall_request_share_t share_params[NE_NUMBER];
 
+  ocall_response_share_t share_responses[NE_NUMBER];
   /* This variable is used for do memory introspection by PE. */
   ocall_inspect_param_t ocall_inspect_param_local;
   char inspect_content[PAGE_SIZE];
@@ -89,8 +91,14 @@ int hello(unsigned long * args)
     run_params[i].reason_ptr = (unsigned long)(&(return_reasons[i]));
     run_params[i].retval_ptr = (unsigned long)(&(return_values[i]));
     run_params[i].request_arg = (unsigned long)(&(request_params[i]));
+    run_params[i].response_arg = (unsigned long)(&(response_params[i]));
+
     request_params[i].inspect_request = (unsigned long)(&(inspect_params[i]));
     request_params[i].share_page_request = (unsigned long)(&(share_params[i]));
+    response_params[i].inspect_response = NULL;
+    response_params[i].share_page_response = (unsigned long)(&(share_responses[i]));
+    eapp_print("[pe] thread [%lx]: response_arg[%lx], share_page_response[%lx]\n",
+                i, (unsigned long)(&(response_params[i])), (unsigned long)(&(share_responses[i])));
   }
 
   int init_run[NE_NUMBER];
@@ -127,6 +135,8 @@ int hello(unsigned long * args)
         single_thread = 1;
       }
     }
+    /* set default value. */
+    response_params[prev].request = 0;
     switch (return_reasons[prev])
     {
       case NE_REQUEST_INSPECT:
@@ -154,7 +164,7 @@ int hello(unsigned long * args)
         ++share_record_count;
         break;
       case NE_REQUEST_ACQUIRE_PAGE:
-        /* NE provides eid & share_id */
+        /* NE provides eid & share_id & content_ptr & size */
         requested = 1;
         /* todo. */
         eapp_print("[sm] NE_REQUEST_ACQUIRE_PAGE: target eid [%lx], share_id [%lx].\n", 
@@ -194,9 +204,22 @@ int hello(unsigned long * args)
         ocall_inspect_param_local.inspect_address = share_records[share_idx].vaddr;
         ocall_inspect_param_local.inspect_size = share_records[share_idx].size;
         eapp_inspect_enclave((unsigned long)(&ocall_inspect_param_local));
-        // eapp_print("[pe] after eapp_inspect_enclave\n");
-        // inspect_content[PAGE_SIZE-1] = '\0';
         eapp_print("%s", inspect_content);
+        /* pass result back. */
+        response_params[prev].request = NE_REQUEST_ACQUIRE_PAGE;
+        share_responses[prev].src_ptr = (unsigned long)(inspect_content);
+        share_responses[prev].dest_ptr = share_params[prev].share_content_ptr;
+        share_responses[prev].share_size = share_params[prev].share_size;
+        eapp_print("[pe] prev [%lx], response_arg (VA)[%lx], response_request [%lx], share_page_response (VA)[%lx].\n", 
+                    prev,
+                    run_params[prev].response_arg, 
+                    response_params[prev].request, 
+                    response_params[prev].share_page_response);
+        eapp_print("[pe] prev [%lx], share src (VA)[%lx], share dest [%lx], share_size [%lx]\n", 
+                    prev,
+                    share_responses[prev].src_ptr, 
+                    share_responses[prev].dest_ptr, 
+                    share_responses[prev].share_size);
         break;
       default:
         break;
@@ -214,6 +237,7 @@ int hello(unsigned long * args)
     
     if (thread_init)
       continue;
+    eapp_print("[pe] resume to execute thread %lx.\n", i);
     retval = eapp_resume_enclave((unsigned long)(&(run_params[i])));
   }
   eapp_print("[pe] hello world!\n");

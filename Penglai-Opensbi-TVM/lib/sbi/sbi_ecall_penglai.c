@@ -81,6 +81,9 @@ static int sbi_ecall_penglai_handler(unsigned long extid, unsigned long funcid,
     case SBI_INSPECT_ENCLAVE:
       retval = sm_inspect_enclave(arg0, arg1, arg2, arg3);
       break;
+    case SBI_RESPONSE_ENCLAVE:
+      retval = sm_response_enclave(arg0, arg1, arg2);
+      break;
     case 84:
       retval = sm_print(arg0, arg1);
       break;

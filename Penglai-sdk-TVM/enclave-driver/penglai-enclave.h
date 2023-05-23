@@ -51,6 +51,7 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define SBI_SM_ATTEST_SHADOW_ENCLAVE     80
 #define SBI_SM_DESTROY_SHADOW_ENCLAVE    79
 
+#define SBI_SM_RESPONSE_ENCLAVE          72
 #define SBI_SM_INSPECT_ENCLAVE           70
 //Error codes of SBI_SM_ALLOC_ENCLAVE_MEM
 #define ENCLAVE_ATTESTATION         -3
@@ -267,6 +268,13 @@ typedef struct ocall_request
   /* todo. support more requests */
 } ocall_request_t;
 
+typedef struct ocall_response
+{
+  unsigned long request;              // reason in PE, similar with ocall_request_t. 0 means do nothing.
+  unsigned long inspect_response;     // VA in NE
+  unsigned long share_page_response;  // VA in NE
+} ocall_response_t;
+
 typedef struct ocall_request_inspect
 {
     unsigned long inspect_ptr;
@@ -297,6 +305,13 @@ typedef struct ocall_request_share
   unsigned long share_content_ptr;  // VA
   unsigned long share_size;
 } ocall_request_share_t;
+
+typedef struct ocall_response_share
+{
+  unsigned long src_ptr;  // VA in PE
+  unsigned long dest_ptr; // VA in NE
+  unsigned long share_size;
+} ocall_response_share_t;
 
 enclave_t* create_enclave(int total_pages, char* name, enclave_type_t type);
 int destroy_enclave(enclave_t* enclave);

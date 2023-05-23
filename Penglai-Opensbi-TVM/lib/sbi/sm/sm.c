@@ -981,6 +981,19 @@ uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t ins
   return retval;
 }
 
+/**
+ * \brief This transitional function is used to response the enclave.
+ * 
+ * \param tgt_eid The NE eid. (slab-layer)
+ * \param src_eid The PE eid. (slab-layer)
+ * \param response_arg The start VA address of PE's response arg.
+ */
+uintptr_t sm_response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg)
+{
+  uintptr_t retval = 0;
+  retval = response_enclave(tgt_eid, src_eid, response_arg);
+  return retval;
+}
 /**************************************************************/
 /*                   Interfaces for shadow enclave           */
 /**************************************************************/
