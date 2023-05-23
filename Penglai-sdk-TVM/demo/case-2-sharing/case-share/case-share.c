@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #define DEFAULT_STACK_SIZE  64*1024
-#define NE_NUMBER 2
+#define NE_NUMBER 3
 /* too large SHARE_LIMIT cause mmap error, out-of-scope */
 #define SHARE_LIMIT 1 << 4
 /* A better allocation method is required. */
@@ -29,10 +29,19 @@ typedef struct share_record
   unsigned long size;
 } share_record_t;
 
+int thread_valid[NE_NUMBER];
 
+/* A trivial round-robin scheduler. */
 int ne_scheduler(int prev)
 {
-  return prev ? 0 : 1;
+  int i = (prev+1)%NE_NUMBER;
+  while (i != prev)
+  {
+    if (thread_valid[i])
+      break;
+    i = (i+1)%NE_NUMBER;
+  }
+  return i;
 }
 
 int share_id_alloc(int *prev)
@@ -40,12 +49,13 @@ int share_id_alloc(int *prev)
   return ++(*prev);
 }
 
+
 int hello(unsigned long * args)
 {
   int retval = 0, prev = 0;
-  int requested = 0, i = 0, single_thread = 0, thread_init = 0;
+  int requested = 0, i = 0, thread_init = 0;
 
-  char *elf_file_names[NE_NUMBER] = {"/root/case-sharer", "/root/case-sharee"};
+  char *elf_file_names[NE_NUMBER] = {"/root/case-sharer", "/root/case-sharee", "/root/case-sharee-plus"};
   int share_id_counts[NE_NUMBER];
   memset(share_id_counts, 0, sizeof(int)*NE_NUMBER);
   share_record_t share_records[SHARE_LIMIT];
@@ -88,6 +98,7 @@ int hello(unsigned long * args)
 
   for (i = 0; i < NE_NUMBER ; i++)
   {
+    thread_valid[i] = 1;
     run_params[i].run_eid = create_params[i].eid;
     run_params[i].reason_ptr = (unsigned long)(&(return_reasons[i]));
     run_params[i].retval_ptr = (unsigned long)(&(return_values[i]));
@@ -127,14 +138,11 @@ int hello(unsigned long * args)
     if (return_reasons[prev] == RETURN_USER_EXIT_ENCL)
     {
       eapp_print("[pe] thread: %d exit!\n", prev);
-      /* print here. */
-      if (single_thread)
+      thread_valid[prev] = 0;
+      i = ne_scheduler(prev);
+      
+      if (i == prev)
         break;
-      else 
-      {
-        i = ne_scheduler(prev);
-        single_thread = 1;
-      }
     }
     /* set default value. */
     response_params[prev].request = 0;
@@ -233,8 +241,7 @@ int hello(unsigned long * args)
     }
 
     // select next running enclave.
-    if (!single_thread)
-      i = ne_scheduler(prev);
+    i = ne_scheduler(prev);
     
     if (thread_init)
       continue;

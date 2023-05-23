@@ -9,6 +9,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-1-introspection/case-inspectee/case-inspectee \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-share/case-share \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee/case-sharee \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee-plus/case-sharee-plus \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharer/case-sharer \
 	$(srcdir)/Penglai-sdk-TVM/demo/relay-page/relay-page \
 	$(srcdir)/Penglai-sdk-TVM/demo/mem/mem \

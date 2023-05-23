@@ -3,7 +3,8 @@
  * which plays a sharee/recver role in memory sharing, 
  *       sends acquiring shared-page request to PE,
  *       and receive the corresponding sharer page.
- *  by Ganxiang Yang @ May 22, 2023.
+ * This demo shows a more flexible and fine-grained memory sharing demo.
+ *  by Ganxiang Yang @ May 23, 2023.
 */
 #include "eapp.h"
 #include "privil.h"
@@ -29,7 +30,7 @@ int hello(unsigned long * args)
   req.request = NE_REQUEST_ACQUIRE_PAGE;
   req.inspect_request = NULL;
   req.share_page_request = (unsigned long)(&share_req);
-  eapp_print("[ne] [sharee] dest_ptr [%lx]\n", (unsigned long)(content));
+  eapp_print("[ne] [sharee-plus] dest_ptr [%lx]\n", (unsigned long)(content));
 
   /* simulate do other chore job. */
   int iter = 0;
@@ -39,9 +40,9 @@ int hello(unsigned long * args)
   }
   
   eapp_pause_enclave((unsigned long)(&req));
-  eapp_print("%s", content+2048);
-  eapp_print("[ne] [sharee] hello world!\n");
-  EAPP_RETURN(127);
+  eapp_print("%s", content+1027);
+  eapp_print("[ne] [sharee-plus] hello world!\n");
+  EAPP_RETURN(63);
 }
 
 int EAPP_ENTRY main(){
