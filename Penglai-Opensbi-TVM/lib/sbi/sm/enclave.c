@@ -2176,14 +2176,7 @@ uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
     goto resume_from_req_out;
   }
 
-  if(enclave->state == STOPPED)
-  {
-    sbi_printf("[sm] resume_from_request: enclave%d is stopped\n", eid);
-    retval = ENCLAVE_TIMER_IRQ;
-    goto resume_from_req_out;
-  }
-  
-  if(enclave->state != OCALLING)
+  if(enclave->state != STOPPED)
   {
     sbi_bug("M mode: resume_from_request: enclave%d is not runnable\n", eid);
     retval = -1UL;
@@ -3049,10 +3042,6 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
   {
     /* dump the NE's register context. */
     struct thread_state_t tgt_context = tgt_enclave->thread_context;
-    sbi_printf("[sm] target dump eid: [%lu]: state: %lx | %lx | %lx | %lx\n", 
-      tgt_eid,
-      tgt_context.prev_mepc, tgt_enclave->thread_context.prev_mepc, 
-      tgt_context.prev_state.sp, tgt_enclave->thread_context.prev_state.sp);
     copy_to_host((void *)(src_enclave->kbuffer), (void *)(&tgt_context), sizeof(struct thread_state_t));
   }
   else 
@@ -4816,7 +4805,8 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
   copy_dword_to_host((uintptr_t*)enclave->retval, (uintptr_t)enclave_pause_args);
 
   swap_from_enclave_to_host(regs, enclave);
-  enclave->state = OCALLING;
+  // enclave->state = OCALLING;
+  enclave->state = STOPPED;
   /* We mark return value as REQUEST to distinguish it from normal OCALL. */
   ret = ENCLAVE_NE_REQUEST;
 pause_enclave_out:

@@ -248,12 +248,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
                       ELF_FILE_LEN, elf_file_name);
       goto free_variable;
     }
-    /* content check */
-    unsigned long sum = 0;
-    int iter = 0;
-    for (iter = 0; iter < elf_file_size; iter++)
-      sum = sum+ (int)((char *)elf_file_buf)[iter];
-    /* content check end */
     
     //FIXME: remove elf_size in enclave_param 
     privil_enclave_elfmemsize(elf_file_buf, &elf_size);

@@ -11,6 +11,8 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee/case-sharee \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee-plus/case-sharee-plus \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharer/case-sharer \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-3-migration/case-migratee/case-migratee \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-3-migration/case-migrator/case-migrator \
 	$(srcdir)/Penglai-sdk-TVM/demo/relay-page/relay-page \
 	$(srcdir)/Penglai-sdk-TVM/demo/mem/mem \
 	$(srcdir)/Penglai-sdk-TVM/demo/IPC/caller/caller \
