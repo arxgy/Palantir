@@ -269,7 +269,7 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
 uintptr_t stop_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t wake_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid);
-uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
+uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size);
 uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg);
 
 // Shadow encalve related operations
@@ -450,6 +450,7 @@ typedef struct ocall_run_param
 typedef struct ocall_inspect_param
 {
   int inspect_eid;
+  int dump_context;
   unsigned long inspect_address; // VA in NE
   unsigned long inspect_size;
   int reason;  // let sdk read (RDONLY), sync with *reason_ptr.

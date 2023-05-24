@@ -103,6 +103,7 @@ typedef struct ocall_run_param
 typedef struct ocall_inspect_param
 {
   int inspect_eid;
+  int dump_context;
   unsigned long inspect_address; // VA in NE
   unsigned long inspect_size;
   int reason;  // let sdk read (RDONLY), sync with *reason_ptr.

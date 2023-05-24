@@ -971,13 +971,14 @@ uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id)
  * 
  * \param tgt_eid The inspectee eid. (slab-layer)
  * \param src_eid The inspector eid. (slab-layer)
+ * \param dump_context 0 means do inspection on memory region, otherwise dump register state.
  * \param inspect_addr The start VA address of inspectee region
  * \param inspect_size The size of inspectee region (<= PAGE SIZE, normally 4kB)
  */
-uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size)
+uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size)
 {
   uintptr_t retval = 0;
-  retval = inspect_enclave(tgt_eid, src_eid, inspect_addr, inspect_size); 
+  retval = inspect_enclave(tgt_eid, src_eid, dump_context, inspect_addr, inspect_size); 
   return retval;
 }
 

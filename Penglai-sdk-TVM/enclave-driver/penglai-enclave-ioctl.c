@@ -168,7 +168,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
 
   if (filep != NULL) 
   {
-    penglai_printf("[sdk driver] enter penglai_enclave_create WITHOUT wrapper\n");
     /* NULL_EID means default launcher: OS. */
     enclave_param->eid = NULL_EID;
     //FIXME: remove elf_size in enclave_param 
@@ -213,7 +212,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       * 
       * by Ganxiang Yang @ May 11, 2023. 
     */
-    penglai_printf("[sdk driver] enter penglai_enclave_create WITH wrapper\n");
 
     elf_file_name = (char *)kmalloc(ELF_FILE_LEN, GFP_KERNEL);
     if (!elf_file_name)
@@ -222,7 +220,7 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       return -1;
     }
     memcpy(elf_file_name, enclave_param->elf_file_name, ELF_FILE_LEN);
-    penglai_printf("[sdk driver] elf_file_name:[%s]\n", elf_file_name);
+    // penglai_printf("[sdk driver] elf_file_name:[%s]\n", elf_file_name);
 
     struct file *elf_file = filp_open(elf_file_name, O_RDONLY, 0);
     if (IS_ERR(elf_file))
@@ -255,19 +253,16 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
     int iter = 0;
     for (iter = 0; iter < elf_file_size; iter++)
       sum = sum+ (int)((char *)elf_file_buf)[iter];
-    penglai_printf("launched enclave sum: [%lu]\n", sum);
     /* content check end */
     
     //FIXME: remove elf_size in enclave_param 
     privil_enclave_elfmemsize(elf_file_buf, &elf_size);
-    penglai_printf("elf_size: [%d]\n", elf_size);
 
     // SHADOW ENCLAVE does not need to assign the stack memory
     if(enclave_param->type == SHADOW_ENCLAVE)
       stack_size = 0;
     order = ilog2(total_enclave_page(elf_size, stack_size)- 1) + 1;
     total_pages = 0x1 << order;
-    penglai_printf("total_pages: [%ld]\n", total_pages);
     if(check_eapp_memory_size(elf_size, stack_size) < 0)
     {
       penglai_eprintf("eapp memory is out of bound \n");
@@ -275,7 +270,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
     }
     spin_lock(&enclave_create_lock);
     enclave = create_enclave(total_pages, enclave_param->name, enclave_param->type);
-    penglai_printf("[sdk driver] enclave_mem.paddr: [%lu]\n", enclave->enclave_mem->paddr);
     if(!enclave)
     {
       penglai_eprintf("cannot create enclave\n");

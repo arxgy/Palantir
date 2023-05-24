@@ -327,11 +327,11 @@ struct enclave_t* __alloc_enclave()
     enclave_metadata_tail = enclave_metadata_head;
   }
 
-  sbi_printf("__alloc_enclave: head[0x%p]; tail[0x%p]\n", enclave_metadata_head, enclave_metadata_tail);
-  for(cur = enclave_metadata_head; cur != NULL; cur = cur->next_link_mem)
-  {
-    sbi_printf("==>: pointer [0x%p]\n", cur);
-  }
+  // sbi_printf("__alloc_enclave: head[0x%p]; tail[0x%p]\n", enclave_metadata_head, enclave_metadata_tail);
+  // for(cur = enclave_metadata_head; cur != NULL; cur = cur->next_link_mem)
+  // {
+  //   sbi_printf("==>: pointer [0x%p]\n", cur);
+  // }
 
   for(cur = enclave_metadata_head; cur != NULL; cur = cur->next_link_mem)
   {
@@ -751,20 +751,20 @@ struct children_enclave_t* __get_children(int eid, struct link_mem_t *metadata_h
   struct children_enclave_t *enclave;
   int i = 0, found = 0;
 
-  if (metadata_head)
-    sbi_printf("[sm] pointed address of metadata_head: [%p]\n", metadata_head);
-  else 
-    sbi_printf("[sm] address of metadata_head: [%p]\n", metadata_head);
+  // if (metadata_head)
+  //   sbi_printf("[sm] pointed address of metadata_head: [%p]\n", metadata_head);
+  // else 
+  //   sbi_printf("[sm] address of metadata_head: [%p]\n", metadata_head);
   for (cur = metadata_head; cur != NULL; cur = cur->next_link_mem)
   {
 
-    sbi_printf("[sm] current cur: [%p]\n", cur);
+    // sbi_printf("[sm] current cur: [%p]\n", cur);
     for (i = 0; i < (cur->slab_num); i++)
     {
       enclave = (struct children_enclave_t*)(cur->addr) + i;
 
       if (enclave->state == FRESH && enclave->eid == eid) {
-        sbi_printf("[sm] I found it! address is [%p]\n", enclave);
+        // sbi_printf("[sm] I found it! address is [%p]\n", enclave);
         found = 1;
         break;
       }
@@ -1111,7 +1111,8 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
  */
 int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
 {
-  // sbi_printf("[sm] [swap_from_enclave_to_host] eid [%u], a0[%lu]\n", enclave->eid, regs[10]);
+  // sbi_printf("[sm] [swap_from_enclave_to_host] eid [%u], CSR_MEPC [%lx], x[sp] [%lx]\n", 
+    // enclave->eid, csr_read(CSR_MEPC), regs[2]);
   //retrieve enclave access to memory
   retrieve_enclave_access(enclave);
 
@@ -1419,13 +1420,13 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
   SET_ENCLAVE_METADATA(create_args.entry_point, enclave, &create_args, enclave_create_param_t *, paddr);
 
-  sbi_printf("[sm] create eid: [%u]\n", enclave->eid);
-  sbi_printf("[sm] parent eid: [%lu]\n", enclave->parent_eid);
-  sbi_printf("[sm] enclave_mem.paddr [again]: [%lu]\n", create_args.paddr);
-  sbi_printf("[sm] root_page_table: [%lu]\n", enclave->root_page_table);
-  sbi_printf("[sm] host_ptbr: [%lu]\n", enclave->host_ptbr);
-  sbi_printf("[sm] encl_ptbr: [%lu]\n", enclave->thread_context.encl_ptbr);
-  sbi_printf("[sm] enclave.entrypoint: [%lu]\n", create_args.entry_point);
+  // sbi_printf("[sm] create eid: [%u]\n", enclave->eid);
+  // sbi_printf("[sm] parent eid: [%lu]\n", enclave->parent_eid);
+  // sbi_printf("[sm] enclave_mem.paddr [again]: [%lu]\n", create_args.paddr);
+  // sbi_printf("[sm] root_page_table: [%lu]\n", enclave->root_page_table);
+  // sbi_printf("[sm] host_ptbr: [%lu]\n", enclave->host_ptbr);
+  // sbi_printf("[sm] encl_ptbr: [%lu]\n", enclave->thread_context.encl_ptbr);
+  // sbi_printf("[sm] enclave.entrypoint: [%lu]\n", create_args.entry_point);
   // sbi_printf("[sm] enclave.satp: [%lu]", enclave->thread_context.encl_ptbr);
   if (enclave->type == NORMAL_ENCLAVE)
   {
@@ -1478,38 +1479,8 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
     }
     children_enclave->eid = enclave->eid;
 
-    /* check: search again. */
-    sbi_printf("[sm] CHILDREN_ALLOC BASIC TEST [START]\n");
-    // sbi_printf("[sm] address: [%lu]\n", address);
-    sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
     parent->children_metadata_head = (struct link_mem_t*)address;
     parent->children_metadata_tail = (struct link_mem_t*)address;
-    sbi_printf("[sm] parent's metadatahead: [%p]\n", parent->children_metadata_head);
-    
-    // if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
-    // {
-    //   ret = ENCLAVE_ERROR;
-    //   sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
-    //   goto release_and_fail;
-    // }
-    // else 
-    // {
-    //   sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
-    // }
-    // if (__free_children(enclave->eid, parent->children_metadata_head))
-    // {
-    //   ret = ENCLAVE_ERROR;
-    //   sbi_bug("M mode: children [%u] free failed [check again]\n", enclave->eid);
-    //   goto release_and_fail;
-    // }
-    // if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
-    // {
-    //   ret = ENCLAVE_ERROR;
-    //   sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
-    //   goto release_and_fail;
-    // }
-    sbi_printf("[sm] CHILDREN_ALLOC PASSED BASIC TEST!\n");
-    /* check end */
   }
   
   release_enclave_metadata_lock();
@@ -2713,7 +2684,7 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   {
     sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), inspect_size);  
   }
-  sbi_printf("[sm] out of [privil_inspect_after_resume]\n");
+  // sbi_printf("[sm] out of [privil_inspect_after_resume]\n");
   /* check on enclave */
   return ret;
 }
@@ -3039,10 +3010,11 @@ stop_enclave_out:
  * 
  * \param tgt_eid The inspectee eid. (slab-layer)
  * \param src_eid The inspector eid. (slab-layer)
+ * \param dump_context 0 means do inspection on memory region, otherwise dump register state.
  * \param inspect_addr The start VA address of inspectee region
  * \param inspect_size The size of inspectee region (<= PAGE SIZE, normally 4kB)
  */
-uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size)
+uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size)
 {
   uintptr_t retval = 0;
   unsigned remain_page_size;
@@ -3070,37 +3042,54 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspec
     retval = -1UL;
     goto inspect_enclave_out;
   }
-  if (inspect_size > PAGE_SIZE)
-  {
-    sbi_bug("M mode: inspect_enclave: inspect_size [%lu] is too large.\n", inspect_size);
-    retval = -1UL;
-    goto inspect_enclave_out;
-  }
 
-  void *inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)inspect_addr);
-  if (!inspect_pa)
+  sbi_printf("[sm] dump_context: [%lu]\n", dump_context);
+
+  if (dump_context)
   {
-    sbi_bug("M mode: inspect_enclave: inspect_pa [%p] can not be accessed\n", inspect_pa);
-    retval = -1UL;
-    goto inspect_enclave_out;
-  }
-  remain_page_size = PAGE_SIZE - (inspect_addr & (PAGE_SIZE-1));
-  if (inspect_size > remain_page_size)
-  {
-    void *inspect_pa_next = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(inspect_addr+remain_page_size));
-    if (!inspect_pa_next)
-    {
-      sbi_bug("M mode: inspect_enclave: inspect_pa_next [%p] can not be accessed\n", inspect_pa_next);
-      retval = -1UL;
-      goto inspect_enclave_out;
-    }
-    copy_to_host((void *)(src_enclave->kbuffer), inspect_pa, remain_page_size);
-    copy_to_host((void *)(src_enclave->kbuffer + remain_page_size), inspect_pa_next, inspect_size - remain_page_size);
+    /* dump the NE's register context. */
+    struct thread_state_t tgt_context = tgt_enclave->thread_context;
+    sbi_printf("[sm] target dump eid: [%lu]: state: %lx | %lx | %lx | %lx\n", 
+      tgt_eid,
+      tgt_context.prev_mepc, tgt_enclave->thread_context.prev_mepc, 
+      tgt_context.prev_state.sp, tgt_enclave->thread_context.prev_state.sp);
+    copy_to_host((void *)(src_enclave->kbuffer), (void *)(&tgt_context), sizeof(struct thread_state_t));
   }
   else 
   {
-    copy_to_host((void *)(src_enclave->kbuffer), inspect_pa, inspect_size);
+    if (inspect_size > PAGE_SIZE)
+    {
+      sbi_bug("M mode: inspect_enclave: inspect_size [%lu] is too large.\n", inspect_size);
+      retval = -1UL;
+      goto inspect_enclave_out;
+    }
+    /* do inspection on NE memory region */
+    void *inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)inspect_addr);
+    if (!inspect_pa)
+    {
+      sbi_bug("M mode: inspect_enclave: inspect_pa [%p] can not be accessed\n", inspect_pa);
+      retval = -1UL;
+      goto inspect_enclave_out;
+    }
+    remain_page_size = PAGE_SIZE - (inspect_addr & (PAGE_SIZE-1));
+    if (inspect_size > remain_page_size)
+    {
+      void *inspect_pa_next = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(inspect_addr+remain_page_size));
+      if (!inspect_pa_next)
+      {
+        sbi_bug("M mode: inspect_enclave: inspect_pa_next [%p] can not be accessed\n", inspect_pa_next);
+        retval = -1UL;
+        goto inspect_enclave_out;
+      }
+      copy_to_host((void *)(src_enclave->kbuffer), inspect_pa, remain_page_size);
+      copy_to_host((void *)(src_enclave->kbuffer + remain_page_size), inspect_pa_next, inspect_size - remain_page_size);
+    }
+    else 
+    {
+      copy_to_host((void *)(src_enclave->kbuffer), inspect_pa, inspect_size);
+    }
   }
+
 inspect_enclave_out:
   release_enclave_metadata_lock();
   return retval;
@@ -3406,8 +3395,6 @@ uintptr_t exit_enclave(uintptr_t* regs, unsigned long enclave_retval)
   swap_from_enclave_to_host(regs, enclave);
 
   /* add our children metadata operations here. */
-  sbi_printf("[sm] enclave eid (slab): [%u]\n", enclave->eid);
-  sbi_printf("[sm] enclave parent eid (slab): [%lu]\n", enclave->parent_eid);
   if (enclave->parent_eid != NULL_EID)
   {
     parent = __get_enclave(enclave->parent_eid);
@@ -3431,24 +3418,18 @@ uintptr_t exit_enclave(uintptr_t* regs, unsigned long enclave_retval)
       sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
       goto exit_enclave_out;
     }
-    else 
-    {
-      sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
-    }
     if (__free_children(enclave->eid, parent->children_metadata_head))
     {
       ret = ENCLAVE_ERROR;
       sbi_bug("M mode: children [%u] free failed [check again]\n", enclave->eid);
       goto exit_enclave_out;
     }
-    sbi_printf("[sm] CHILDREN_DELETE [EXIT] BASIC TEST [START]\n");
     if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
     {
       ret = ENCLAVE_ERROR;
       sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
       goto exit_enclave_out;
     }
-    sbi_printf("[sm] CHILDREN_DELETE [EXIT] PASSED BASIC TEST!\n");
 
   }
 

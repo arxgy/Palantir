@@ -31,6 +31,8 @@
         "hash_set": "c",
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "random": "c",
+        "thread.h": "c"
     }
 }

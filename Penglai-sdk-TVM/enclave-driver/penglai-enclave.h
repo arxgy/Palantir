@@ -10,6 +10,8 @@
 #define STACK_POINT 0x0000003800000000UL
 #define PENGLAI_ENCLAVE_IOC_MAGIC  0xa4
 
+/** (#regs * sizeof(uintptr_t)) => 39*8 = 312 */
+#define PENGLAI_REGS_STATE_SIZE_MAGIC 312
 /* Restriction on PE's NE file length*/
 #define ELF_FILE_LEN       256
 /* let 0xffffffffffffffffUL be NULL slab eid */
@@ -253,6 +255,7 @@ typedef struct ocall_run_param
 typedef struct ocall_inspect_param
 {
   int inspect_eid;
+  int dump_context;
   unsigned long inspect_address; // VA in NE
   unsigned long inspect_size;
   int reason;  // let sdk read (RDONLY), sync with *reason_ptr.

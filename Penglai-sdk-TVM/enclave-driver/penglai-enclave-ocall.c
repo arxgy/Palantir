@@ -460,7 +460,12 @@ int handle_ocall_inspect_enclave(enclave_instance_t *enclave_instance, enclave_t
    * step 2. inspect NE
    * inspect result will be written into kbuffer
   */
-  ret = SBI_PENGLAI_4(SBI_SM_INSPECT_ENCLAVE, target_eid, resume_id, 
+  if (ocall_inspect_param_local.dump_context)
+  {
+    ocall_inspect_param_local.inspect_size = PENGLAI_REGS_STATE_SIZE_MAGIC;
+  }
+  ret = SBI_PENGLAI_5(SBI_SM_INSPECT_ENCLAVE, target_eid, resume_id, 
+                      ocall_inspect_param_local.dump_context,
                       ocall_inspect_param_local.inspect_address, 
                       ocall_inspect_param_local.inspect_size);
   if (ret < 0)

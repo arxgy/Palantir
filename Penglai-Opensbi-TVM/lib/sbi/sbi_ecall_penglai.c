@@ -79,7 +79,7 @@ static int sbi_ecall_penglai_handler(unsigned long extid, unsigned long funcid,
       retval = sm_schrodinger_init(arg0, arg1);
       break;
     case SBI_INSPECT_ENCLAVE:
-      retval = sm_inspect_enclave(arg0, arg1, arg2, arg3);
+      retval = sm_inspect_enclave(arg0, arg1, arg2, arg3, arg4);
       break;
     case SBI_RESPONSE_ENCLAVE:
       retval = sm_response_enclave(arg0, arg1, arg2);
