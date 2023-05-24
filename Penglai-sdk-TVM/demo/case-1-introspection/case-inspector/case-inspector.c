@@ -1,3 +1,9 @@
+/**
+ * This program is a Privileged Enclave demo in Memory Inspection case study,
+ * which is supported to do live enclave memory introspection on a vulnerable Normal Enclave.
+ * Specifically, Privileged Enclave can either accept inspect request or actively do mandatory inspection.
+ *  by Ganxiang Yang @ May 24, 2023.
+*/
 #include "eapp.h"
 #include "print.h"
 #include "privil.h"
@@ -64,8 +70,11 @@ int hello(unsigned long * args)
   inspect_param.inspect_result = (unsigned long)(content);
 
   ocall_request_t request_param;
+  ocall_response_t response_param;
   ocall_request_inspect_t inspect_request_param;
   request_param.inspect_request = (unsigned long)(&inspect_request_param);
+  response_param.inspect_response = NULL;
+  response_param.share_page_response = NULL;
 
   ocall_run_param_t run_param;
   int return_reason, return_value;
@@ -73,11 +82,12 @@ int hello(unsigned long * args)
   run_param.reason_ptr = (unsigned long)(&return_reason);
   run_param.retval_ptr = (unsigned long)(&return_value);
   run_param.request_arg = (unsigned long)(&request_param);
+  run_param.response_arg = (unsigned long)(&response_param);
+
   eapp_print("[pe] request_arg [%p], inspect_arg [%p].\n",
               (void *)(&request_param), (void *)(&inspect_request_param));
   retval = eapp_run_enclave((unsigned long)(&run_param));
 
-  int stop_and_destroy = 0;
   
   /* todo. ADD A SCHEDULER HERE. */
   while (retval == 0)
@@ -94,19 +104,15 @@ int hello(unsigned long * args)
         inspect_param.inspect_address = inspect_request_param.inspect_ptr;
         inspect_param.inspect_size = inspect_request_param.inspect_size;
         eapp_inspect_enclave((unsigned long)(&inspect_param));
-        eapp_print("%s", content);
+        unsigned long *selector_ptr = (unsigned long *)content;
+        eapp_print("[pe] [inspector] selector value: [%lx]", *selector_ptr);
+        // eapp_print("%s", content);
 
         break;
       case NE_REQUEST_SHARE_PAGE:
-        break;
-      case RETURN_USER_EXIT_ENCL:
-        // eapp_print("[pe] Normal Enclave Exit!\n");
-        break;
-      case RETURN_USER_NE_IRQ:
-        // eapp_print("[pe] run return for RETURN_USER_NE_IRQ\n");
+        /* We don't perform any service here. */
         break;
       default:
-        // eapp_print("[pe] eapp_run_enclave return value is: [%d]\n", return_reason);
         break;
     }
     if (return_reason == RETURN_USER_EXIT_ENCL)
@@ -122,24 +128,13 @@ int hello(unsigned long * args)
       eapp_print("[pe] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
       break;
     }
-    if (stop_and_destroy)
+    run_param.resume_reason = return_reason;
+    // For all request-interrupt, we provide a uniformed resume reason.
+    if (requested)
     {
-      // retval = eapp_stop_enclave((unsigned long)(&stop_param));
-      // eapp_print("[pe] eapp_stop_enclave return value is [%d]\n", retval);
-      retval = eapp_destroy_enclave(run_param.run_eid);
-      eapp_print("[pe] eapp_destroy_enclave return value is [%d]\n", retval);
-      break;
+      run_param.resume_reason = RETURN_USER_NE_REQUEST;        
     }
-    else 
-    {
-      run_param.resume_reason = return_reason;
-      // For all request-interrupt, we provide a uniformed resume reason.
-      if (requested)
-      {
-        run_param.resume_reason = RETURN_USER_NE_REQUEST;        
-      }
-      retval = eapp_resume_enclave((unsigned long)(&run_param));
-    }
+    retval = eapp_resume_enclave((unsigned long)(&run_param));
   }
 
   /* exit successfully */
