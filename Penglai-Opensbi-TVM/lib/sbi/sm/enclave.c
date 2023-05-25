@@ -1058,7 +1058,6 @@ uintptr_t change_relay_page_ownership(unsigned long relay_page_addr, unsigned lo
  */
 int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 {
-  // sbi_printf("[sm] [swap_from_host_to_enclave] eid [%u]\n", enclave->eid);
   //grant encalve access to memory
   if(grant_enclave_access(enclave) < 0)
     return -1;
@@ -1088,7 +1087,6 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
 
   //swap the mepc to transfer control to the enclave
   swap_prev_mepc(&(enclave->thread_context), csr_read(CSR_MEPC)); 
-  // sbi_printf("[sm] [swap_from_host_to_enclave] x[ra] [%lx], mepc [%lx]\n", host_regs[1], csr_read(CSR_MEPC));
   //set mstatus to transfer control to u mode
   uintptr_t mstatus = csr_read(CSR_MSTATUS);
   mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_U);
@@ -1111,23 +1109,14 @@ int swap_from_host_to_enclave(uintptr_t* host_regs, struct enclave_t* enclave)
  */
 int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
 {
-  // sbi_printf("[sm] [swap_from_enclave_to_host] eid [%u], CSR_MEPC [%lx], x[sp] [%lx]\n", 
-    // enclave->eid, csr_read(CSR_MEPC), regs[2]);
   //retrieve enclave access to memory
   retrieve_enclave_access(enclave);
 
   //restore host context
   swap_prev_state(&(enclave->thread_context), regs);
 
-  // uintptr_t prev_satp;
-  // prev_satp = csr_read(CSR_SATP);
-  // sbi_printf("[sm] prev satp: [%lu]\n", prev_satp);
-
   //restore host's ptbr
   switch_to_host_ptbr(&(enclave->thread_context), enclave->host_ptbr);
-
-  // prev_satp = csr_read(CSR_SATP);
-  // sbi_printf("[sm] curr satp: [%lu]\n", prev_satp);
 
   //restore host stvec
   swap_prev_stvec(&(enclave->thread_context), csr_read(CSR_STVEC));
@@ -1143,15 +1132,8 @@ int swap_from_enclave_to_host(uintptr_t* regs, struct enclave_t* enclave)
   swap_prev_medeleg(&(enclave->thread_context), csr_read(CSR_MEDELEG));
 
   //transfer control back to kernel
-  // uintptr_t prev_mepc;
-  // prev_mepc = csr_read(CSR_MEPC);
-  // sbi_printf("[sm] prev mepc: [%lu]\n", prev_mepc);
-
   swap_prev_mepc(&(enclave->thread_context), csr_read(CSR_MEPC));
   
-  // prev_mepc = csr_read(CSR_MEPC);
-  // sbi_printf("[sm] curr mepc: [%lu]\n", prev_mepc);
-
   //restore mstatus
   uintptr_t mstatus = csr_read(CSR_MSTATUS);
   mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_S);
@@ -1537,6 +1519,8 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
     enclave->shm_paddr = 0;
     enclave->shm_size = 0;
   }
+  /* todo. add our create-from-snapshot here. */
+
 
   hash_enclave(enclave, (void*)(enclave->hash), 0);
   copy_word_to_host((unsigned int*)create_args.eid_ptr, enclave->eid);
@@ -2515,7 +2499,50 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
     sbi_printf("[sm] ne share eid [%lx] and share_id [%lu]\n", 
                 ocall_share_req.eid, ocall_share_req.share_id);
   }
-
+  else if (return_reason == NE_REQUEST_DEBUG_PRINT)
+  {
+    sbi_printf("[sm] [swap_from_host_to_enclave] eid [%u]\n", enclave->eid);
+    sbi_printf("[sm] _stack_top [%lx], _heap_top [%lx]\n", enclave->_stack_top, enclave->_heap_top);
+    struct vm_area_struct* cur_vma = NULL;
+    struct pm_area_struct* cur_pma = NULL;
+    
+    cur_pma = enclave->pma_list;
+    while (cur_pma != NULL)
+    {
+      sbi_printf("[sm] pma [%p], free_mem [%lx], paddr [%lx], size [%lu]\n", 
+        (void *)cur_pma, cur_pma->free_mem, cur_pma->paddr, cur_pma->size);
+      cur_pma = cur_pma->pm_next;
+    }
+    cur_vma = enclave->text_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] text_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+    
+    cur_vma = enclave->stack_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] stack_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+    cur_vma = enclave->heap_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] heap_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+    cur_vma = enclave->mmap_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] mmap_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+  }
   return ret;
 }
 
@@ -2622,7 +2649,50 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
     sbi_printf("[sm] ne share eid [%lx] and share_id [%lu]\n", 
                 ocall_share_req.eid, ocall_share_req.share_id);
   }
-
+  else if (return_reason == NE_REQUEST_DEBUG_PRINT)
+  {
+    sbi_printf("[sm] [swap_from_host_to_enclave] eid [%u]\n", tgt_enclave->eid);
+    sbi_printf("[sm] _stack_top [%lx], _heap_top [%lx]\n", tgt_enclave->_stack_top, tgt_enclave->_heap_top);
+    struct vm_area_struct* cur_vma = NULL;
+    struct pm_area_struct* cur_pma = NULL;
+    
+    cur_pma = tgt_enclave->pma_list;
+    while (cur_pma != NULL)
+    {
+      sbi_printf("[sm] pma [%p], free_mem [%lx], paddr [%lx], size [%lu]\n", 
+        (void *)cur_pma, cur_pma->free_mem, cur_pma->paddr, cur_pma->size);
+      cur_pma = cur_pma->pm_next;
+    }
+    cur_vma = tgt_enclave->text_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] text_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+    
+    cur_vma = tgt_enclave->stack_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] stack_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+    cur_vma = tgt_enclave->heap_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] heap_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+    cur_vma = tgt_enclave->mmap_vma;
+    while (cur_vma != NULL)
+    {
+      sbi_printf("[sm] mmap_vma [%p], ->pma [%p], va_start [%lx], va_end [%lx], size [%lu]\n", 
+        (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
+      cur_vma = cur_vma->vm_next;  
+    }
+  }
   return ret;
 }
 
@@ -4658,12 +4728,15 @@ out:
  * 
  * \param regs The host register context.
  * \param tgt_eid Destroyed enclave id. (idr-allocated)
+ * \param op The additional destroy operation
  */
-uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t tgt_eid)
+uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t enclave_destroy_args)
 {
   uintptr_t ret = 0;
   struct enclave_t *enclave = NULL; // current running enclave, should be PE.
   int cur_eid = 0; 
+  unsigned remain_page_size;
+  unsigned param_size = sizeof(ocall_destroy_param_t);
 
   if(check_in_enclave_world() < 0)
   {
@@ -4680,12 +4753,32 @@ uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t tgt_eid)
   {
     // early reject.
     ret = -1UL;
-    sbi_bug("M mode: privil_resume_enclave: enclave%lu can not be accessed!\n", tgt_eid);
+    sbi_bug("M mode: privil_resume_enclave: enclave can not be accessed!\n");
     goto out;
   }
-  
+
+  void *destroy_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)enclave_destroy_args);
+  if (!destroy_args)
+  {
+    ret = -1UL;
+    sbi_bug("M mode: privil_destroy_enclave: enclave_destroy_args pointer is not valid\n");
+    goto out;
+  }
+  remain_page_size = PAGE_SIZE - (enclave_destroy_args & (PAGE_SIZE-1));
+  if (param_size > remain_page_size)
+  {
+    copy_to_host((void *)(enclave->kbuffer), destroy_args, remain_page_size);
+    copy_to_host((void *)(enclave->kbuffer+remain_page_size),
+                  va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(enclave_destroy_args+remain_page_size)), 
+                  param_size - remain_page_size);
+  }
+  else 
+  {
+    copy_to_host((void *)(enclave->kbuffer), destroy_args, param_size);
+  }
   copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_DESTROY_ENCLAVE);
-  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, tgt_eid);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_destroy_args);
 
   swap_from_enclave_to_host(regs, enclave);
   enclave->state = OCALLING;

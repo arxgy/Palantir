@@ -329,7 +329,7 @@ uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args);
 uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t enclave_run_args);
 uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args);
-uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
+uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t enclave_destroy_args);
 uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args);
 uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args);
 
@@ -446,6 +446,27 @@ typedef struct ocall_run_param
   unsigned long request_arg;     // VA in PE, accept parameters from NE.
   unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
+
+typedef struct vm_area_dump
+{
+  unsigned long va_start;
+  unsigned long va_end;
+} vm_area_dump_t;
+
+typedef struct enclave_mem_dump
+{
+  vm_area_dump_t text_vma;
+  vm_area_dump_t stack_vma;
+  vm_area_dump_t heap_vma[DEFAULT_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_VMA_MAX];
+} enclave_mem_dump_t;
+
+typedef struct ocall_destroy_param
+{
+  int destroy_eid;
+  unsigned long op;
+  unsigned long dump_arg;  // VA in PE;
+} ocall_destroy_param_t;
 
 typedef struct ocall_inspect_param
 {

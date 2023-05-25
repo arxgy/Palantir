@@ -59,6 +59,8 @@
 #define NE_REQUEST_SHARE_PAGE             11
 #define NE_REQUEST_ACQUIRE_PAGE           12
 
+#define NE_REQUEST_DEBUG_PRINT            20
+
 //Function id of resume reason
 #define RESUME_FROM_TIMER_IRQ    0
 #define RESUME_FROM_STOP         1
@@ -114,6 +116,9 @@
 #define OCALL_DESTROY_ENCLAVE		 21
 #define OCALL_INSPECT_ENCLAVE		 22
 #define OCALL_PAUSE_ENCLAVE		 	 23
+
+#define DESTROY_DEFAULT  0
+#define DESTROY_SNAPSHOT 1
 
 typedef int page_meta;
 #define NORMAL_PAGE                      ((page_meta)0x7FFFFFFF)

@@ -12,6 +12,7 @@
 
 #define PENGLAI_ENCLAVE_IOC_MAGIC  0xa4
 #define HASH_SIZE 32
+#define DEFAULT_VMA_MAX   216
 
 #define PENGLAI_ENCLAVE_IOC_CREATE_ENCLAVE \
   _IOR(PENGLAI_ENCLAVE_IOC_MAGIC, 0x00, struct penglai_enclave_user_param)
@@ -269,6 +270,27 @@ typedef struct ocall_run_param
   unsigned long request_arg;     // VA in PE, accept parameters from NE.
   unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
+
+typedef struct vm_area_dump
+{
+  unsigned long va_start;
+  unsigned long va_end;
+} vm_area_dump_t;
+
+typedef struct enclave_mem_dump
+{
+  vm_area_dump_t text_vma;
+  vm_area_dump_t stack_vma;
+  vm_area_dump_t heap_vma[DEFAULT_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_VMA_MAX];
+} enclave_mem_dump_t;
+
+typedef struct ocall_destroy_param
+{
+  int destroy_eid;
+  unsigned long op;
+  unsigned long dump_arg;  // VA in PE;
+} ocall_destroy_param_t;
 
 typedef struct ocall_inspect_param
 {

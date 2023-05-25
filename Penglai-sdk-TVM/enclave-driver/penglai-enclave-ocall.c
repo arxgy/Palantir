@@ -6,6 +6,15 @@
 #include "penglai-enclave-persistency.h"
 #include "penglai-enclave-ocall.h"
 #include "penglai-enclave.h"
+#include <linux/delay.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+#include <linux/err.h>
+#include <linux/stat.h>
+#include <linux/types.h>
+#include <asm/uaccess.h>
 
 int handle_ocall_mmap(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
@@ -22,7 +31,6 @@ int handle_ocall_mmap(enclave_instance_t *enclave_instance, enclave_t *enclave, 
     penglai_eprintf("penglai_enclave_ocall: OCALL_MMAP  is failed\r\n");
     return ret;
   }
-  // printk("enclave_driver: now we resume to enclave\n");
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_MMAP, __pa(vaddr), (1<<order)*RISCV_PGSIZE);
   return ret;
 }
@@ -383,34 +391,49 @@ int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t
 {
   /* todo. not finished yet. */
   int ret = 0;
-  unsigned long tgt_eid = 0;
+  void *kbuf;
   enclave_t *destroy_enclave = NULL;
   if (isShadow)
   {
-    tgt_eid = enclave_instance->ocall_arg0;
+    kbuf = (void *) __va(enclave_instance->ocall_arg0);
   }
   else 
   {
-    tgt_eid = enclave->ocall_arg0;
+    kbuf = (void *) __va(enclave->ocall_arg0);
   }
   /**
    * step 1. prepare
+   *         - copy parameters & get eid
    *         - do sanity checks
   */
-  destroy_enclave = get_enclave_by_id(tgt_eid);
+  ocall_destroy_param_t *ocall_destroy_param_local = (ocall_destroy_param_t *)(kbuf);
+  destroy_enclave = get_enclave_by_id(ocall_destroy_param_local->destroy_eid);
   if (destroy_enclave == NULL)
   {
-    penglai_eprintf("[sdk driver] invalid enclave target: [%d] (slab)\n", tgt_eid);
+    penglai_eprintf("[sdk driver] invalid enclave target: [%d] (slab)\n", ocall_destroy_param_local->destroy_eid);
   }
-  penglai_printf("[sdk driver] target destroy enclave eid [idr] is: [%lu]\n", tgt_eid);
+  penglai_printf("[sdk driver] target destroy enclave eid [idr] is: [%lu]\n", ocall_destroy_param_local->destroy_eid);
   penglai_printf("[sdk driver] target destroy enclave eid [slab] is: [%lu]\n", destroy_enclave->eid);
 
   struct penglai_enclave_user_param enclave_param;
-  enclave_param.eid = tgt_eid;
+  enclave_param.eid = ocall_destroy_param_local->destroy_eid;
   enclave_param.isShadow = 0;
   /**
    * step 2. destroy NE 
   */
+  if (ocall_destroy_param_local->op == DESTROY_SNAPSHOT)
+  {
+    penglai_printf("[sdk driver] I'll do snapshot and dump file now!\n");
+    /* dump from SM, might need a more dynamic way. */
+    
+    /* todo. */
+
+  }
+  else 
+  {
+    /* more operations here. */
+  }
+
   ret = penglai_enclave_ocall_destroy((unsigned long)(&enclave_param));
   if (ret < 0)
   {

@@ -16,6 +16,8 @@
 #define ELF_FILE_LEN       256
 /* let 0xffffffffffffffffUL be NULL slab eid */
 #define NULL_EID           -1
+#define DEFAULT_VMA_MAX   216
+
 extern long SBI_PENGLAI_ECALL_0(int fid);
 extern long SBI_PENGLAI_ECALL_1(int fid, unsigned long arg0);
 extern long SBI_PENGLAI_ECALL_2(int fid, unsigned long arg0, unsigned long arg1);
@@ -76,6 +78,11 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define NE_REQUEST_INSPECT                10
 #define NE_REQUEST_SHARE_PAGE             11
 #define NE_REQUEST_ACQUIRE_PAGE           12
+
+#define NE_REQUEST_DEBUG_PRINT            20
+
+#define DESTROY_DEFAULT  0
+#define DESTROY_SNAPSHOT 1
 
 /* OCALL codes */
 #define OCALL_MMAP                        1
@@ -251,6 +258,27 @@ typedef struct ocall_run_param
   unsigned long request_arg;     // VA in PE, accept parameters from NE.
   unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
+
+typedef struct vm_area_dump
+{
+  unsigned long va_start;
+  unsigned long va_end;
+} vm_area_dump_t;
+
+typedef struct enclave_mem_dump
+{
+  vm_area_dump_t text_vma;
+  vm_area_dump_t stack_vma;
+  vm_area_dump_t heap_vma[DEFAULT_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_VMA_MAX];
+} enclave_mem_dump_t;
+
+typedef struct ocall_destroy_param
+{
+  int destroy_eid;
+  unsigned long op;
+  unsigned long dump_arg;  // VA in PE;
+} ocall_destroy_param_t;
 
 typedef struct ocall_inspect_param
 {

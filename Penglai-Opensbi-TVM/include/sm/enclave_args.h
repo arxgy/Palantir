@@ -18,6 +18,9 @@
 #define ELF_FILE_LEN       256
 /* let 0xffffffffffffffffUL be NULL slab eid */
 #define NULL_EID           -1
+
+#define DEFAULT_VMA_MAX   216
+
 struct mm_alloc_arg_t
 {
   unsigned long req_size;

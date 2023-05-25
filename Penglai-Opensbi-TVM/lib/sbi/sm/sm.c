@@ -1180,7 +1180,7 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
       ret = privil_resume_enclave(regs, arg0);
       break;
     case OCALL_DESTROY_ENCLAVE:
-      // the arg0 is the idr-layer eid of target enclave.
+      // the arg0 is the VA of destroy_arg
       ret = privil_destroy_enclave(regs, arg0);
       break; 
     case OCALL_INSPECT_ENCLAVE:
