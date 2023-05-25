@@ -391,6 +391,7 @@ int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t
 {
   /* todo. not finished yet. */
   int ret = 0;
+  int target_eid = 0;
   void *kbuf;
   enclave_t *destroy_enclave = NULL;
   if (isShadow)
@@ -421,18 +422,17 @@ int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t
   /**
    * step 2. destroy NE 
   */
-  if (ocall_destroy_param_local->op == DESTROY_SNAPSHOT)
-  {
-    penglai_printf("[sdk driver] I'll do snapshot and dump file now!\n");
-    /* dump from SM, might need a more dynamic way. */
+  // unsigned long op = ocall_destroy_param_local->op;
+  // unsigned long dump_arg = ocall_destroy_param_local->dump_arg;
+  // target_eid = destroy_enclave->eid;
     
-    /* todo. */
-
-  }
-  else 
-  {
-    /* more operations here. */
-  }
+  // /* dump all vmas from SM, might need a more dynamic way. */
+  // /* the dumped vma layout will be stored in PE's kbuffer */
+  // ret = SBI_PENGLAI_2(SBI_SM_MEMORY_DUMP, target_eid, resume_id);
+  // if (ret < 0)
+  // {
+  //   penglai_eprintf("[sdk driver] SBI_SM_MEMORY_DUMPs failed with retval [%d]\n", ret);
+  // }
 
   ret = penglai_enclave_ocall_destroy((unsigned long)(&enclave_param));
   if (ret < 0)

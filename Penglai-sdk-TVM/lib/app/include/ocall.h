@@ -34,7 +34,4 @@
 #define OCALL_INSPECT_ENCLAVE		 22
 #define OCALL_PAUSE_ENCLAVE		 	 23
 
-#define DESTROY_DEFAULT  0
-#define DESTROY_SNAPSHOT 1
-
 #endif

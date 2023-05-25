@@ -117,9 +117,6 @@
 #define OCALL_INSPECT_ENCLAVE		 22
 #define OCALL_PAUSE_ENCLAVE		 	 23
 
-#define DESTROY_DEFAULT  0
-#define DESTROY_SNAPSHOT 1
-
 typedef int page_meta;
 #define NORMAL_PAGE                      ((page_meta)0x7FFFFFFF)
 #define ZERO_MAP_PAGE                    ((page_meta)0x7FFFFFFE)

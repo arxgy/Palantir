@@ -35,6 +35,12 @@ int hello(unsigned long * args)
   eapp_print("[ne] eapp_mmap address: [%p]\n", content);
   eapp_pause_enclave((unsigned long)(&req));
 
+  int iter = 0;
+  while (iter < 1 << 12) 
+  { 
+    /* wait. */
+  }
+  
   eapp_print("[ne] [migratee] hello world!\n");
   EAPP_RETURN(0);
 }

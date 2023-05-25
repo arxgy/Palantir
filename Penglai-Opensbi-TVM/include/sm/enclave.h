@@ -271,6 +271,7 @@ uintptr_t wake_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size);
 uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg);
+uintptr_t memory_layout_dump(uintptr_t tgt_eid, uintptr_t src_eid);
 
 // Shadow encalve related operations
 uintptr_t create_shadow_enclave(enclave_create_param_t create_args);
@@ -457,8 +458,10 @@ typedef struct enclave_mem_dump
 {
   vm_area_dump_t text_vma;
   vm_area_dump_t stack_vma;
-  vm_area_dump_t heap_vma[DEFAULT_VMA_MAX];
-  vm_area_dump_t mmap_vma[DEFAULT_VMA_MAX];
+  unsigned long heap_sz;
+  unsigned long mmap_sz;
+  vm_area_dump_t heap_vma[DEFAULT_HEAP_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_MMAP_VMA_MAX];
 } enclave_mem_dump_t;
 
 typedef struct ocall_destroy_param

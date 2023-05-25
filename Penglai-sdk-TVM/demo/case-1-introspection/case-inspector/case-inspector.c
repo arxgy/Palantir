@@ -122,7 +122,7 @@ int hello(unsigned long * args)
     if (loop == 0)
     {
       /* dump code from 0x1000 to 0x1200 */
-      inspect_param.dump_context = 0;
+      inspect_param.dump_context = INSPECT_MEM;
       inspect_param.inspect_eid = run_param.run_eid;
       inspect_param.inspect_address = ENTRY_POINT;
       inspect_param.inspect_size = DEFAULT_INSPECT_TEXT_SIZE;
@@ -144,7 +144,7 @@ int hello(unsigned long * args)
     else if (loop == 1)
     {
       /* dump context */
-      inspect_param.dump_context = 1;
+      inspect_param.dump_context = INSPECT_REGS;
       eapp_inspect_enclave((unsigned long)(&inspect_param));
       dump_context = (ocall_request_dump_t *)content;
       eapp_print("%lx | %lx \n", dump_context->encl_ptbr, dump_context->state.sp);
@@ -159,7 +159,7 @@ int hello(unsigned long * args)
         eapp_print("[pe] [inspector] receive NE_REQUEST_INSPECT with ptr [%lx] and size [%d]\n", 
                     inspect_request_param.inspect_ptr, inspect_size_int);
         /* We do live variable inspection first. */
-        inspect_param.dump_context = 0;
+        inspect_param.dump_context = INSPECT_MEM;
         inspect_param.inspect_eid = run_param.run_eid;
         inspect_param.inspect_address = inspect_request_param.inspect_ptr;
         inspect_param.inspect_size = inspect_request_param.inspect_size;

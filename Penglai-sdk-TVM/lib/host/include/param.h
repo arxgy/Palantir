@@ -12,7 +12,12 @@
 
 #define PENGLAI_ENCLAVE_IOC_MAGIC  0xa4
 #define HASH_SIZE 32
-#define DEFAULT_VMA_MAX   216
+#define DEFAULT_HEAP_VMA_MAX   127
+#define DEFAULT_MMAP_VMA_MAX    63
+
+#define INSPECT_MEM     0
+#define INSPECT_REGS    1
+#define INSPECT_VMA     2
 
 #define PENGLAI_ENCLAVE_IOC_CREATE_ENCLAVE \
   _IOR(PENGLAI_ENCLAVE_IOC_MAGIC, 0x00, struct penglai_enclave_user_param)
@@ -281,8 +286,10 @@ typedef struct enclave_mem_dump
 {
   vm_area_dump_t text_vma;
   vm_area_dump_t stack_vma;
-  vm_area_dump_t heap_vma[DEFAULT_VMA_MAX];
-  vm_area_dump_t mmap_vma[DEFAULT_VMA_MAX];
+  unsigned long heap_sz;
+  unsigned long mmap_sz;
+  vm_area_dump_t heap_vma[DEFAULT_HEAP_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_MMAP_VMA_MAX];
 } enclave_mem_dump_t;
 
 typedef struct ocall_destroy_param

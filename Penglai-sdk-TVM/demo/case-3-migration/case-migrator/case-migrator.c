@@ -19,7 +19,7 @@
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
 
-#define DEFAULT_SNAPSHOT_STAGE  3
+#define DEFAULT_SNAPSHOT_STAGE  10
 int hello(unsigned long * args)
 {  
   char *elf_file_name = "/root/case-migratee";
@@ -82,6 +82,7 @@ int hello(unsigned long * args)
   run_param.request_arg = (unsigned long)(&request_param);
   run_param.response_arg = (unsigned long)(&response_param);
 
+  ocall_inspect_param_t inspect_param;
   eapp_print("[pe] request_arg [%p], inspect_arg [%p].\n",
               (void *)(&request_param), (void *)(&inspect_request_param));
   retval = eapp_run_enclave((unsigned long)(&run_param));
@@ -97,9 +98,21 @@ int hello(unsigned long * args)
     {
       ocall_destroy_param_t destroy_param;
       destroy_param.destroy_eid = run_param.run_eid;
-      destroy_param.op = DESTROY_SNAPSHOT;
-      destroy_param.dump_arg = (unsigned long)(&dump_arg);
       /* do inspect & snapshot */
+      eapp_print("[pe] dump arg address: [%lx]\n", (unsigned long)(&dump_arg));
+
+      inspect_param.inspect_eid = run_param.run_eid;
+      inspect_param.dump_context = INSPECT_VMA;
+      inspect_param.inspect_result = (unsigned long)(&dump_arg);
+      eapp_inspect_enclave((unsigned long)(&inspect_param));
+      eapp_print("[pe] text_vma: start: [%lx], end: [%lx]\n", dump_arg.text_vma.va_start, dump_arg.text_vma.va_end);
+      eapp_print("[pe] stack_vma: start: [%lx], end: [%lx]\n", dump_arg.stack_vma.va_start, dump_arg.stack_vma.va_end);
+      int i;
+      for (i = 0 ; i < dump_arg.heap_sz ; i++)
+        eapp_print("[pe] heap_vma[%d]: start: [%lx], end: [%lx]\n", i, dump_arg.heap_vma[i].va_start, dump_arg.heap_vma[i].va_end);
+      for (i = 0 ; i < dump_arg.mmap_sz ; i++)
+        eapp_print("[pe] mmap_vma[%d]: start: [%lx], end: [%lx]\n", i, dump_arg.mmap_vma[i].va_start, dump_arg.mmap_vma[i].va_end);
+
       retval = eapp_destroy_enclave((unsigned long)(&destroy_param));
       eapp_print("[pe] eapp_destroy_enclave return value is [%d]\n", retval);
       break;

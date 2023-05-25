@@ -17,10 +17,12 @@
 
 #define NE_REQUEST_DEBUG_PRINT            20
 
-#define DESTROY_DEFAULT  0
-#define DESTROY_SNAPSHOT 1
+#define DEFAULT_HEAP_VMA_MAX   127
+#define DEFAULT_MMAP_VMA_MAX    63
 
-#define DEFAULT_VMA_MAX   216
+#define INSPECT_MEM     0
+#define INSPECT_REGS    1
+#define INSPECT_VMA     2
 /* todo: host-level update */
 typedef enum
 {
@@ -117,8 +119,10 @@ typedef struct enclave_mem_dump
 {
   vm_area_dump_t text_vma;
   vm_area_dump_t stack_vma;
-  vm_area_dump_t heap_vma[DEFAULT_VMA_MAX];
-  vm_area_dump_t mmap_vma[DEFAULT_VMA_MAX];
+  unsigned long heap_sz;
+  unsigned long mmap_sz;
+  vm_area_dump_t heap_vma[DEFAULT_HEAP_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_MMAP_VMA_MAX];
 } enclave_mem_dump_t;
 
 typedef struct ocall_destroy_param

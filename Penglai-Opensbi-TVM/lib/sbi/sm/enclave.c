@@ -2700,11 +2700,11 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
  * \brief Just perform sanity check and return to PE.
  * 
  * \param enclave The enclave structure.
+ * \param dump_arg The VA of enclave dump_arg.
  */
 uintptr_t privil_destroy_after_resume(struct enclave_t *enclave)
 {
   uintptr_t ret = 0;
-  /* check on enclave */
   return ret;
 }
 
@@ -3083,6 +3083,8 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
   unsigned remain_page_size;
   struct enclave_t *tgt_enclave = NULL;
   struct enclave_t *src_enclave = NULL;
+  struct vm_area_struct *heap_vma = NULL;
+  struct vm_area_struct *mmap_vma = NULL;
   acquire_enclave_metadata_lock();
 
   tgt_enclave = __get_enclave(tgt_eid);
@@ -3108,11 +3110,61 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
 
   sbi_printf("[sm] dump_context: [%lu]\n", dump_context);
 
-  if (dump_context)
+  if (dump_context == INSPECT_REGS)
   {
     /* dump the NE's register context. */
     struct thread_state_t tgt_context = tgt_enclave->thread_context;
     copy_to_host((void *)(src_enclave->kbuffer), (void *)(&tgt_context), sizeof(struct thread_state_t));
+  }
+  else if (dump_context == INSPECT_VMA)
+  {
+    enclave_mem_dump_t enclave_mem_dump;
+    enclave_mem_dump.text_vma.va_start = tgt_enclave->text_vma->va_start;
+    enclave_mem_dump.text_vma.va_end = tgt_enclave->text_vma->va_end;
+    enclave_mem_dump.stack_vma.va_start = tgt_enclave->stack_vma->va_start;
+    enclave_mem_dump.stack_vma.va_end = tgt_enclave->stack_vma->va_end;
+    unsigned i = 0;
+    heap_vma = tgt_enclave->heap_vma;
+    while (i < DEFAULT_HEAP_VMA_MAX)
+    {
+      if (!heap_vma)
+      { 
+        enclave_mem_dump.heap_sz = i;
+        break;
+      }
+      enclave_mem_dump.heap_vma[i].va_start = heap_vma->va_start;
+      enclave_mem_dump.heap_vma[i].va_end = heap_vma->va_end;
+      heap_vma = heap_vma->vm_next;
+      i++;
+    }
+    if (heap_vma)
+    {
+      sbi_bug("M mode: inspect_enclave: heap entry exceeds maximal entry number!\n");
+      retval = -1UL;
+      goto inspect_enclave_out;
+    }
+
+    i = 0;
+    mmap_vma = tgt_enclave->mmap_vma;
+    while (i < DEFAULT_MMAP_VMA_MAX)
+    {
+      if (!mmap_vma)
+      {
+        enclave_mem_dump.mmap_sz = i;
+        break;
+      }
+      enclave_mem_dump.mmap_vma[i].va_start = mmap_vma->va_start;
+      enclave_mem_dump.mmap_vma[i].va_end = mmap_vma->va_end;
+      mmap_vma = mmap_vma->vm_next;
+      i++;
+    }
+    if (mmap_vma)
+    {
+      sbi_bug("M mode: inspect_enclave: mmap entry exceeds maximal entry number!\n");
+      retval = -1UL;
+      goto inspect_enclave_out;
+    }
+    copy_to_host((void *)(src_enclave->kbuffer), (void *)(&enclave_mem_dump), sizeof(enclave_mem_dump_t));
   }
   else 
   {
@@ -3271,7 +3323,6 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
 
 response_enclave_out:
   release_enclave_metadata_lock();
-  sbi_printf("[sm] exit response_enclave\n");
   return retval;
 }
 

@@ -19,7 +19,12 @@
 /* let 0xffffffffffffffffUL be NULL slab eid */
 #define NULL_EID           -1
 
-#define DEFAULT_VMA_MAX   216
+#define DEFAULT_HEAP_VMA_MAX   127
+#define DEFAULT_MMAP_VMA_MAX    63
+
+#define INSPECT_MEM     0
+#define INSPECT_REGS    1
+#define INSPECT_VMA     2
 
 struct mm_alloc_arg_t
 {
