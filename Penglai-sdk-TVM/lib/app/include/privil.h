@@ -17,12 +17,15 @@
 
 #define NE_REQUEST_DEBUG_PRINT            20
 
-#define DEFAULT_HEAP_VMA_MAX   127
-#define DEFAULT_MMAP_VMA_MAX    63
+#define DEFAULT_HEAP_VMA_MAX    72
+#define DEFAULT_MMAP_VMA_MAX    72
 
 #define INSPECT_MEM     0
 #define INSPECT_REGS    1
 #define INSPECT_VMA     2
+
+/* 64*1024 \div PAGESZ => 16 */
+#define DEFAULT_STACK_PAGES 16
 /* todo: host-level update */
 typedef enum
 {
@@ -197,5 +200,43 @@ typedef struct ocall_response_share
   unsigned long dest_ptr; // VA in NE
   unsigned long share_size;
 } ocall_response_share_t;
+
+
+typedef struct snapshot_mem_area
+{
+  unsigned long vaddr;  // VA in PE
+  unsigned long start;  // VA in NE
+  unsigned long end;    // VA in NE
+} snapshot_mem_area_t;
+
+typedef struct snapshot_mmap_state
+{
+  unsigned long mmap_sz;
+  snapshot_mem_area_t mmap_areas[DEFAULT_MMAP_VMA_MAX];
+} snapshot_mmap_state_t;
+
+typedef struct snapshot_heap_state
+{
+  unsigned long heap_sz;
+  snapshot_mem_area_t heap_areas[DEFAULT_HEAP_VMA_MAX];
+} snapshot_heap_state_t;
+
+/**
+ *  We use this parameter to migrate enclave. 
+ * \param regs is runtime register state of NE
+ * \param stack_sz #page of stack
+ * \param stack is VA in PE, contains stack pages in NE 
+ *        ([0] means highest page)
+ * \param mmap stores all mmap vma and its contents (VA in PE)
+ * \param heap stores all heap vma and its contents (VA in PE)
+*/
+typedef struct snapshot_state
+{
+  ocall_request_dump_t regs;
+  unsigned long stack_sz;
+  unsigned long stack[DEFAULT_STACK_PAGES];  
+  snapshot_mmap_state_t mmap;
+  snapshot_heap_state_t heap;
+} snapshot_state_t;
 
 #endif

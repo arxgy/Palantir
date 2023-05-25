@@ -15,11 +15,51 @@
 #include <unistd.h>
 
 #define ENTRY_POINT 0x1000
+#define DEFAULT_STACK_BASE 0x3800000000
 #define DEFAULT_INSPECT_TEXT_SIZE   512
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
 
-#define DEFAULT_SNAPSHOT_STAGE  10
+#define DEFAULT_SNAPSHOT_STAGE  15
+
+/* Do endian transfer to make it easy to be compared with section .text */
+unsigned trans(unsigned i)
+{
+  unsigned a = (i & 0xff000000)>>24;
+  unsigned b = (i & 0x00ff0000)>>16;
+  unsigned c = (i & 0x0000ff00)>>8;
+  unsigned d = (i & 0x000000ff);
+  return (d<<24 | c <<16 | b<<8 | a);
+}
+
+/* tools for print memory region */
+void printm(unsigned long start, unsigned long size)
+{
+  unsigned *instruction_ptr = (unsigned *)start;
+  while (instruction_ptr < start + size)
+  {
+    unsigned instruction0 = (unsigned)(*(instruction_ptr));
+    unsigned instruction1 = (unsigned)(*(instruction_ptr+1));
+    unsigned instruction2 = (unsigned)(*(instruction_ptr+2));
+    unsigned instruction3 = (unsigned)(*(instruction_ptr+3));
+    unsigned instruction4 = (unsigned)(*(instruction_ptr+4));
+    unsigned instruction5 = (unsigned)(*(instruction_ptr+5));
+    unsigned instruction6 = (unsigned)(*(instruction_ptr+6));
+    unsigned instruction7 = (unsigned)(*(instruction_ptr+7));
+    eapp_print("|%x|%x|%x|%x|%x|%x|%x|%x|\n", 
+      trans(instruction0), trans(instruction1), trans(instruction2), trans(instruction3),
+      trans(instruction4), trans(instruction5), trans(instruction6), trans(instruction7));
+    instruction_ptr += 8;
+  }
+}
+
+void insert_mem_area(snapshot_mem_area_t *area, unsigned long vaddr, unsigned long start, unsigned long end)
+{
+  area->vaddr = vaddr;
+  area->start = start;
+  area->end = end;
+}
+
 int hello(unsigned long * args)
 {  
   char *elf_file_name = "/root/case-migratee";
@@ -72,7 +112,6 @@ int hello(unsigned long * args)
   request_param.inspect_request = (unsigned long)(&inspect_request_param);
   response_param.inspect_response = NULL;
   response_param.share_page_response = NULL;
-  ocall_request_dump_t *dump_context = NULL;
 
   ocall_run_param_t run_param;
   int return_reason, return_value;
@@ -87,32 +126,132 @@ int hello(unsigned long * args)
               (void *)(&request_param), (void *)(&inspect_request_param));
   retval = eapp_run_enclave((unsigned long)(&run_param));
 
-  enclave_mem_dump_t dump_arg;
-  memset((void *)(&dump_arg), 0, sizeof(enclave_mem_dump_t));
-  eapp_print("[pe] dump_arg size: [%lx]\n", sizeof(enclave_mem_dump_t));
+  char dump_mems[PAGE_SIZE];        // for mem
+  ocall_request_dump_t dump_regs; // for regs
+  enclave_mem_dump_t dump_vmas;    // for vma
+  snapshot_state_t state;
+
+  memset((void *)(&dump_vmas), 0, sizeof(enclave_mem_dump_t));
+  memset((void *)dump_mems, 0, PAGE_SIZE);
+  memset((void *)(&dump_regs), 0, sizeof(ocall_request_dump_t));
+  memset((void *)(&state), 0, sizeof(snapshot_state_t));
+  
+  /* We set parameters carefully to ensure sizeof <= 4kB */
+  eapp_print("[pe] enclave_mem_dump_t size: [%lx]\n", sizeof(enclave_mem_dump_t));
+  eapp_print("[pe] snapshot_state_t size: [%lx]\n", sizeof(snapshot_state_t));
 
   unsigned loop = 0;
   while (retval == 0)
   {
     if (loop == DEFAULT_SNAPSHOT_STAGE)
     {
+      int i;
+      inspect_param.inspect_eid = run_param.run_eid;
+      /* dump vma */
+      inspect_param.dump_context = INSPECT_VMA;
+      inspect_param.inspect_result = (unsigned long)(&dump_vmas);
+      eapp_inspect_enclave((unsigned long)(&inspect_param));
+      for (i = 0 ; i < dump_vmas.heap_sz ; i++)
+        eapp_print("[pe] heap_vma[%d]: start: [%lx], end: [%lx]\n", i, dump_vmas.heap_vma[i].va_start, dump_vmas.heap_vma[i].va_end);
+      for (i = 0 ; i < dump_vmas.mmap_sz ; i++)
+        eapp_print("[pe] mmap_vma[%d]: start: [%lx], end: [%lx]\n", i, dump_vmas.mmap_vma[i].va_start, dump_vmas.mmap_vma[i].va_end);
+      /* dump regs */
+      inspect_param.dump_context = INSPECT_REGS;
+      inspect_param.inspect_result = (unsigned long)(&dump_regs);
+      eapp_inspect_enclave((unsigned long)(&inspect_param));
+      eapp_print("[pe] CSR_MEPC [%lx], x[sp] [%lx]\n", dump_regs.mepc, dump_regs.state.sp);
+
+      inspect_param.dump_context = INSPECT_MEM;
+      inspect_param.inspect_result = (unsigned long)(dump_mems);
+      unsigned long sp = dump_regs.state.sp;
+      unsigned long copy_cur;
+      void *copy_dest;
+
+      /* copy registers */
+      state.regs = dump_regs;
+      /* copy stacks */
+      inspect_param.inspect_size = PAGE_SIZE;
+      
+      copy_cur = DEFAULT_STACK_BASE - PAGE_SIZE;
+      while (1)
+      {
+        inspect_param.inspect_address = copy_cur;
+        eapp_inspect_enclave((unsigned long)(&inspect_param));
+
+        copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+        memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
+        state.stack[state.stack_sz++] = (unsigned long)(copy_dest);
+        
+        if (copy_cur <= sp)
+          break;
+        copy_cur -= PAGE_SIZE;
+      }
+
+      /* Currently, seems mmap and heap are both page-grained. */
+      vm_area_dump_t vma;
+      snapshot_mem_area_t *mem_area;
+      /* copy mmap */
+      snapshot_mmap_state_t *mmap = &(state.mmap); 
+      for (i = 0 ; i < dump_vmas.mmap_sz ; i++)
+      {
+        vma = dump_vmas.mmap_vma[i];
+        copy_cur = vma.va_start;
+        while (copy_cur+PAGE_SIZE < vma.va_end)
+        {
+          inspect_param.inspect_address = copy_cur;
+          eapp_inspect_enclave((unsigned long)(&inspect_param));
+          copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+          memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
+          mem_area = &(mmap->mmap_areas[mmap->mmap_sz++]);
+          insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, copy_cur+PAGE_SIZE);
+          copy_cur += PAGE_SIZE;
+        }
+        inspect_param.inspect_address = copy_cur;
+        inspect_param.inspect_size = vma.va_end - copy_cur;
+        eapp_inspect_enclave((unsigned long)(&inspect_param));
+        copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+        memcpy(copy_dest, (void *)dump_mems, inspect_param.inspect_size);
+        mem_area = &(mmap->mmap_areas[mmap->mmap_sz++]);
+        insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, vma.va_end);
+      }
+      /* copy heap */
+      snapshot_heap_state_t *heap = &(state.heap);
+      for (i = 0 ; i < dump_vmas.heap_sz ; i++)
+      {
+        vma = dump_vmas.heap_vma[i];
+        copy_cur = vma.va_start;
+        while (copy_cur+PAGE_SIZE < vma.va_end)
+        {
+          inspect_param.inspect_address = copy_cur;
+          eapp_inspect_enclave((unsigned long)(&inspect_param));
+          copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+          memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
+          mem_area = &(heap->heap_areas[heap->heap_sz++]);
+          insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, copy_cur+PAGE_SIZE);
+          copy_cur += PAGE_SIZE;
+        }
+        inspect_param.inspect_address = copy_cur;
+        inspect_param.inspect_size = vma.va_end - copy_cur;
+        eapp_inspect_enclave((unsigned long)(&inspect_param));
+        copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+        memcpy(copy_dest, (void *)dump_mems, inspect_param.inspect_size);
+        mem_area = &(heap->heap_areas[heap->heap_sz++]);
+        insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, vma.va_end);
+      }
+      /* check */
+      for (i = 0 ; i < mmap->mmap_sz ; i++)
+      {
+        eapp_print("[pe] mmap_area[%d]: vaddr [%lx], start [%lx], end [%lx]\n",
+                    i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start, mmap->mmap_areas[i].end);
+      }
+      for (i = 0 ; i < heap->heap_sz ; i++)
+      {
+        eapp_print("[pe] heap_area[%d]: vaddr [%lx], start [%lx], end [%lx]\n",
+                    i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start, heap->heap_areas[i].end);
+      }
+      /* destroy stopped enclave. */
       ocall_destroy_param_t destroy_param;
       destroy_param.destroy_eid = run_param.run_eid;
-      /* do inspect & snapshot */
-      eapp_print("[pe] dump arg address: [%lx]\n", (unsigned long)(&dump_arg));
-
-      inspect_param.inspect_eid = run_param.run_eid;
-      inspect_param.dump_context = INSPECT_VMA;
-      inspect_param.inspect_result = (unsigned long)(&dump_arg);
-      eapp_inspect_enclave((unsigned long)(&inspect_param));
-      eapp_print("[pe] text_vma: start: [%lx], end: [%lx]\n", dump_arg.text_vma.va_start, dump_arg.text_vma.va_end);
-      eapp_print("[pe] stack_vma: start: [%lx], end: [%lx]\n", dump_arg.stack_vma.va_start, dump_arg.stack_vma.va_end);
-      int i;
-      for (i = 0 ; i < dump_arg.heap_sz ; i++)
-        eapp_print("[pe] heap_vma[%d]: start: [%lx], end: [%lx]\n", i, dump_arg.heap_vma[i].va_start, dump_arg.heap_vma[i].va_end);
-      for (i = 0 ; i < dump_arg.mmap_sz ; i++)
-        eapp_print("[pe] mmap_vma[%d]: start: [%lx], end: [%lx]\n", i, dump_arg.mmap_vma[i].va_start, dump_arg.mmap_vma[i].va_end);
-
       retval = eapp_destroy_enclave((unsigned long)(&destroy_param));
       eapp_print("[pe] eapp_destroy_enclave return value is [%d]\n", retval);
       break;
@@ -152,7 +291,7 @@ int hello(unsigned long * args)
     retval = eapp_resume_enclave((unsigned long)(&run_param));
   }
 
-  /* Then we restore it from (vma) dump struct (locally). */
+  /* Then we restore Normal Enclave from (vma) dump struct (locally). */
 
   /* exit successfully */
   eapp_print("[pe] [migrator] hello world!\n");

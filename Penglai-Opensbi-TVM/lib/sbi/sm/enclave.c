@@ -3119,6 +3119,7 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
   else if (dump_context == INSPECT_VMA)
   {
     enclave_mem_dump_t enclave_mem_dump;
+    /* fixme. text_vma can be ignored. */
     enclave_mem_dump.text_vma.va_start = tgt_enclave->text_vma->va_start;
     enclave_mem_dump.text_vma.va_end = tgt_enclave->text_vma->va_end;
     enclave_mem_dump.stack_vma.va_start = tgt_enclave->stack_vma->va_start;
@@ -3153,6 +3154,7 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
         enclave_mem_dump.mmap_sz = i;
         break;
       }
+      sbi_printf("[sm] [inspect_enclave] mmap_vma[%d]: start [%lx], end [%lx]\n", i, mmap_vma->va_start, mmap_vma->va_end);
       enclave_mem_dump.mmap_vma[i].va_start = mmap_vma->va_start;
       enclave_mem_dump.mmap_vma[i].va_end = mmap_vma->va_end;
       mmap_vma = mmap_vma->vm_next;

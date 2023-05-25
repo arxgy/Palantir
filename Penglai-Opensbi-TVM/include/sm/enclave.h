@@ -20,6 +20,8 @@
 #define MAX_HARTS 8
 #define ENCLAVE_MODE 1
 #define NORMAL_MODE 0
+/* 64*1024 \div PAGESZ => 16 */
+#define DEFAULT_STACK_PAGES 16
 
 #define CHILDREN_METADATA_REGION_SIZE  ((sizeof(struct children_enclave_t)) * ENCLAVES_PER_METADATA_REGION)
 
@@ -534,5 +536,41 @@ typedef struct ocall_response_share
   unsigned long dest_ptr; // VA in NE
   unsigned long share_size;
 } ocall_response_share_t;
+
+typedef struct snapshot_mem_area
+{
+  unsigned long vaddr;  // VA in PE
+  unsigned long start;  // VA in NE
+  unsigned long end;    // VA in NE
+} snapshot_mem_area_t;
+
+typedef struct snapshot_mmap_state
+{
+  unsigned long mmap_sz;
+  snapshot_mem_area_t mmap_areas[DEFAULT_MMAP_VMA_MAX];
+} snapshot_mmap_state_t;
+
+typedef struct snapshot_heap_state
+{
+  unsigned long heap_sz;
+  snapshot_mem_area_t heap_areas[DEFAULT_HEAP_VMA_MAX];
+} snapshot_heap_state_t;
+
+/**
+ *  We use this parameter to migrate enclave. 
+ * \param regs is runtime register state of NE
+ * \param stack is VA in PE, contains stack pages in NE 
+ *        ([0] means highest page)
+ * \param mmap stores all mmap vma and its contents (VA in PE)
+ * \param heap stores all heap vma and its contents (VA in PE)
+*/
+typedef struct snapshot_state
+{
+  ocall_request_dump_t regs;
+  unsigned long stack_sz;
+  unsigned long stack[DEFAULT_STACK_PAGES];  
+  snapshot_mmap_state_t mmap;
+  snapshot_heap_state_t heap;
+} snapshot_state_t;
 
 #endif /* _ENCLAVE_H */

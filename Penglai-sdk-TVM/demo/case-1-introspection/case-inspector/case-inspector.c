@@ -168,12 +168,12 @@ int hello(unsigned long * args)
         eapp_print("[pe] [inspector] NE's selector value: [%lx]", *selector_ptr);
 
         /* We then do stack check to find out detailed problem. */
-        inspect_param.dump_context = 1;
+        inspect_param.dump_context = INSPECT_REGS;
         eapp_inspect_enclave((unsigned long)(&inspect_param));
         dump_context = (ocall_request_dump_t *)content;
         // eapp_print("[pe] [inspector] CSR_MEPC: [%lx] | x[sp]: [%lx]\n", dump_context->mepc, dump_context->state.sp);
 
-        inspect_param.dump_context = 0;
+        inspect_param.dump_context = INSPECT_MEM;
         inspect_param.inspect_address = dump_context->state.sp;
         inspect_param.inspect_size = DEFAULT_INSPECT_STACK_SIZE;
         eapp_inspect_enclave((unsigned long)(&inspect_param));

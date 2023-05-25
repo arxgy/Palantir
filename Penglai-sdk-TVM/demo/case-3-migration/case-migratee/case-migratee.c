@@ -36,9 +36,10 @@ int hello(unsigned long * args)
   eapp_pause_enclave((unsigned long)(&req));
 
   int iter = 0;
-  while (iter < 1 << 12) 
+  while (iter < 1 << 20) 
   { 
     /* wait. */
+    iter++;
   }
   
   eapp_print("[ne] [migratee] hello world!\n");
