@@ -53,6 +53,7 @@ int hello(unsigned long * args)
   create_param.elf_file_ptr = (unsigned long) &create_param;
   create_param.encl_type = NORMAL_ENCLAVE;
   create_param.stack_size = DEFAULT_STACK_SIZE;
+  create_param.migrate_arg = 0;
   /* disable shm currently */
   create_param.shmid = 0;
   create_param.shm_offset = 0;

@@ -159,6 +159,7 @@ struct penglai_enclave_user_param
   unsigned long schrodinger_size;
   unsigned long retval;
   char elf_file_name[ELF_FILE_LEN];
+  unsigned long migrate_arg;
 };
 
 struct penglai_shmget_param
@@ -239,7 +240,8 @@ typedef unsigned char byte;
 
 typedef struct ocall_create_param
 {
-  /* enclave */
+  /* allocated enclave */
+  /* inner layer eid */
   unsigned int eid;
   
   /* enclaveFile */
@@ -253,8 +255,7 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
-
-
+  unsigned long migrate_arg;
 } ocall_create_param_t;
 
 typedef struct ocall_attest_param
@@ -369,7 +370,7 @@ typedef struct snapshot_mem_area
 {
   unsigned long vaddr;  // VA in PE
   unsigned long start;  // VA in NE
-  unsigned long end;    // VA in NE
+  unsigned long paddr;  // alloc by kernel, exactly 1 page .
 } snapshot_mem_area_t;
 
 typedef struct snapshot_mmap_state

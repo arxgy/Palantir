@@ -299,6 +299,7 @@ int PLenclave_create(struct PLenclave* PLenclave, struct elf_args* u_elffile, st
   PLenclave->user_param.shm_offset = u_param->shm_offset;
   PLenclave->user_param.shm_size = u_param->shm_size;
   PLenclave->user_param.type = u_param->type;
+  PLenclave->user_param.migrate_arg = 0;
   memcpy(PLenclave->user_param.name, u_param->name, NAME_LEN);
   if(PLenclave->user_param.elf_ptr == 0 || PLenclave->user_param.elf_size <= 0)
   {

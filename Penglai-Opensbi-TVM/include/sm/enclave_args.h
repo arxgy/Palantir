@@ -107,6 +107,7 @@ typedef struct enclave_create_param
   unsigned long *ecall_arg2;
   unsigned long *ecall_arg3;
   unsigned long *retval;
+  unsigned long migrate_arg;
 } enclave_create_param_t;
 
 typedef struct enclave_run_param

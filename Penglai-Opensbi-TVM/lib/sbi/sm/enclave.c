@@ -1344,6 +1344,72 @@ void initilze_va_struct(struct pm_area_struct* pma, struct vm_area_struct* vma, 
   enclave->sec_shm_vma = NULL;
 }
 
+void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsigned long migrate_arg)
+{
+  if (!parent || !migrate_arg)
+    return;
+  unsigned i, param_size;
+
+  // uintptr_t copy_to_va;
+  // void *copy_to_pa;
+  uintptr_t copy_from_va; 
+  void *copy_from_pa;
+  /**
+   * Theres' a mysterious sbug. 
+   * Allocated to copy_buf (on stack) will cause Store/AMO access fault (mcause = 0x7; mtval = 0x0) sometimes.
+   * But if we reuse the similar [buffer] variable on stack, this bug vanished?
+   *  by Ganxiang Yang @ May 26, 2023. 
+  */
+  // char copy_buf[PAGE_SIZE];
+  char buffer[PAGE_SIZE]; // larger than sizeof(state)
+  snapshot_state_t state;
+
+  sbi_memcpy((void *)(&state), (void *)(parent->kbuffer+sizeof(ocall_create_param_t)), sizeof(snapshot_state_t));
+
+  snapshot_mmap_state_t *mmap = &(state.mmap);
+  snapshot_heap_state_t *heap = &(state.heap);
+
+  /* register copy */
+  // sbi_printf("[sm] [state_migration] sizeof(thread_state_t): [%lu], sizeof(ocall_request_dump_t): [%lu]\n", sizeof(struct thread_state_t), sizeof(ocall_request_dump_t));
+  sbi_printf("[sm] start copy register\n");
+  sbi_memcpy((void *)(&(enclave->thread_context)), (void *)(&(state.regs)), sizeof(ocall_request_dump_t));
+  /* code above are checked */
+  /* stack copy */
+  // copy_to_va = STACK_POINT;
+  param_size = PAGE_SIZE;
+  sbi_printf("[sm] start copy stack\n");
+  for (i = 0 ; i < state.stack_sz ; i++)
+  {
+    copy_from_va = state.stack[i];
+    sbi_printf("[sm] copy_from_va [%lx]\n", copy_from_va);
+    copy_from_pa = va_to_pa((uintptr_t *)(parent->root_page_table), (void *)copy_from_va);
+    if (!copy_from_pa)
+    {
+      sbi_bug("M mode: state_migration: copy_from_va [%lx] can not be accessed\n", copy_from_va);
+      return;
+    }
+    if ((copy_from_va & (PAGE_SIZE-1)) != 0)
+    {
+      sbi_bug("M mode: stack address should be page-aligned.\n");
+      return;
+    }
+    sbi_memcpy((void *)(buffer), copy_from_pa, param_size);
+    /* copy from buffer to enclave & do mmap */
+    
+  }
+  /* mmap copy */
+  for (i = 0 ; i < mmap->mmap_sz ; i++)
+  {
+
+  }
+  /* heap copy */
+  for (i = 0 ; i < heap->heap_sz ; i++)
+  {
+
+  }
+  
+}
+
 /**************************************************************/
 /*                   called by host                           */
 /**************************************************************/
@@ -1520,6 +1586,11 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
     enclave->shm_size = 0;
   }
   /* todo. add our create-from-snapshot here. */
+  if (enclave->parent_eid != NULL_EID)
+  {
+    struct enclave_t *parent = __get_enclave(enclave->parent_eid);
+    state_migration(enclave, parent, create_args.migrate_arg);
+  }
 
 
   hash_enclave(enclave, (void*)(enclave->hash), 0);
@@ -1527,7 +1598,7 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
   //Sync and flush the remote TLB entry.
   tlb_remote_sfence();
-  sbi_printf("now we end create!\n");
+  sbi_printf("[sm] now we end create!\n");
   return ret;
 
 release_and_fail:
@@ -2225,7 +2296,8 @@ uintptr_t mmap_after_resume(struct enclave_t *enclave, uintptr_t paddr, uintptr_
   insert_pma(&(enclave->pma_list), pma);
   mmap((uintptr_t*)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+RISCV_PGSIZE, size-RISCV_PGSIZE);
   retval = vma->va_start;
-  
+  sbi_printf("[sm] mmap_after_resume: [%lx] -> [%lx]\n", retval, paddr+RISCV_PGSIZE);
+
   return retval;
 }
 
@@ -2740,7 +2812,7 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   }
   else 
   {
-    sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), inspect_size);  
+    sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), param_size);  
   }
   // sbi_printf("[sm] out of [privil_inspect_after_resume]\n");
   /* check on enclave */
@@ -4451,6 +4523,8 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   }
   /* pass the slab eid */
   ((ocall_create_param_t *)create_args)->eid = eid;
+  sbi_printf("[sm] [privil_create_enclave] create size: [%lu] \n", sizeof(ocall_create_param_t));
+
 
   /* Avoid same-VA-page but diff-PA-page situation. */
   remain_page_size = PAGE_SIZE - (enclave_create_args & (PAGE_SIZE-1));
@@ -4465,7 +4539,46 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   {
     copy_to_host((void*)(enclave->kbuffer), create_args, param_size);
   }
-  
+
+  uintptr_t state_va = ((ocall_create_param_t *)create_args)->migrate_arg;
+  if (state_va)
+  {
+    sbi_printf("[sm] state_va: [%lx]\n", state_va);
+    void *state_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)state_va);
+    void *state_buf = (void *)(enclave->kbuffer + sizeof(ocall_create_param_t));
+
+    param_size = sizeof(snapshot_state_t);
+    remain_page_size = PAGE_SIZE - (state_va & (PAGE_SIZE-1));
+    snapshot_state_t *state = (snapshot_state_t *)state_pa;
+    snapshot_mmap_state_t *mmap = &(state->mmap); 
+    snapshot_heap_state_t *heap = &(state->heap);
+    sbi_printf("[sm] sizeof(snapshot_state_t): [%lx]\n", sizeof(snapshot_state_t));
+    unsigned i = 0;
+    for (i = 0 ; i < mmap->mmap_sz ; i++)
+    {
+      sbi_printf("[sm] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
+                  i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
+    }
+    for (i = 0 ; i < heap->heap_sz ; i++)
+    {
+      sbi_printf("[sm] heap_area[%d]: vaddr [%lx], start [%lx]\n",
+                  i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
+    }
+    if (param_size > remain_page_size)
+    {
+      copy_to_host(state_buf, state_pa, remain_page_size);
+      copy_to_host((void *)(state_buf + remain_page_size),
+                    va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(state_va+remain_page_size)),
+                    param_size - remain_page_size);
+    }
+    else 
+    {
+      copy_to_host(state_buf, state_pa, param_size);
+    }
+
+  }
+
+
   copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_CREATE_ENCLAVE);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_create_args);

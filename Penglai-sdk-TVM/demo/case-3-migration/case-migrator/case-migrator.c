@@ -21,7 +21,7 @@
 #define DEFAULT_STACK_SIZE  64*1024
 
 #define DEFAULT_SNAPSHOT_STAGE  15
-
+#define MMAP_SIZE PAGE_SIZE<<1
 /* Do endian transfer to make it easy to be compared with section .text */
 unsigned trans(unsigned i)
 {
@@ -53,11 +53,10 @@ void printm(unsigned long start, unsigned long size)
   }
 }
 
-void insert_mem_area(snapshot_mem_area_t *area, unsigned long vaddr, unsigned long start, unsigned long end)
+void insert_mem_area(snapshot_mem_area_t *area, unsigned long vaddr, unsigned long start)
 {
   area->vaddr = vaddr;
   area->start = start;
-  area->end = end;
 }
 
 int hello(unsigned long * args)
@@ -69,6 +68,7 @@ int hello(unsigned long * args)
   create_param.elf_file_ptr = (unsigned long) &create_param;
   create_param.encl_type = NORMAL_ENCLAVE;
   create_param.stack_size = DEFAULT_STACK_SIZE;
+  create_param.migrate_arg = 0;
   /* disable shm currently */
   create_param.shmid = 0;
   create_param.shm_offset = 0;
@@ -178,10 +178,10 @@ int hello(unsigned long * args)
         inspect_param.inspect_address = copy_cur;
         eapp_inspect_enclave((unsigned long)(&inspect_param));
 
-        copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+        copy_dest = eapp_mmap(NULL, MMAP_SIZE);
         memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
         state.stack[state.stack_sz++] = (unsigned long)(copy_dest);
-        
+        eapp_print("[pe] [migrator] stack addr: [%lx]\n", (unsigned long)(copy_dest));
         if (copy_cur <= sp)
           break;
         copy_cur -= PAGE_SIZE;
@@ -200,19 +200,19 @@ int hello(unsigned long * args)
         {
           inspect_param.inspect_address = copy_cur;
           eapp_inspect_enclave((unsigned long)(&inspect_param));
-          copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+          copy_dest = eapp_mmap(NULL, MMAP_SIZE);
           memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
           mem_area = &(mmap->mmap_areas[mmap->mmap_sz++]);
-          insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, copy_cur+PAGE_SIZE);
+          insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur);
           copy_cur += PAGE_SIZE;
         }
         inspect_param.inspect_address = copy_cur;
         inspect_param.inspect_size = vma.va_end - copy_cur;
         eapp_inspect_enclave((unsigned long)(&inspect_param));
-        copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+        copy_dest = eapp_mmap(NULL, MMAP_SIZE);
         memcpy(copy_dest, (void *)dump_mems, inspect_param.inspect_size);
         mem_area = &(mmap->mmap_areas[mmap->mmap_sz++]);
-        insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, vma.va_end);
+        insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur);
       }
       /* copy heap */
       snapshot_heap_state_t *heap = &(state.heap);
@@ -224,35 +224,30 @@ int hello(unsigned long * args)
         {
           inspect_param.inspect_address = copy_cur;
           eapp_inspect_enclave((unsigned long)(&inspect_param));
-          copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+          copy_dest = eapp_mmap(NULL, MMAP_SIZE);
           memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
           mem_area = &(heap->heap_areas[heap->heap_sz++]);
-          insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, copy_cur+PAGE_SIZE);
+          insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur);
           copy_cur += PAGE_SIZE;
         }
         inspect_param.inspect_address = copy_cur;
         inspect_param.inspect_size = vma.va_end - copy_cur;
         eapp_inspect_enclave((unsigned long)(&inspect_param));
-        copy_dest = eapp_mmap(NULL, PAGE_SIZE);
+        copy_dest = eapp_mmap(NULL, MMAP_SIZE);
         memcpy(copy_dest, (void *)dump_mems, inspect_param.inspect_size);
         mem_area = &(heap->heap_areas[heap->heap_sz++]);
-        insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, vma.va_end);
+        insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur);
       }
       /* check */
-      for (i = 0 ; i < state.stack_sz ; i++)
-      {
-        eapp_print("[pe] state[%d]: vaddr [%lx], start [%lx], end [%lx]\n",
-                    i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start, mmap->mmap_areas[i].end);
-      }
       for (i = 0 ; i < mmap->mmap_sz ; i++)
       {
-        eapp_print("[pe] mmap_area[%d]: vaddr [%lx], start [%lx], end [%lx]\n",
-                    i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start, mmap->mmap_areas[i].end);
+        eapp_print("[pe] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
+                    i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
       }
       for (i = 0 ; i < heap->heap_sz ; i++)
       {
-        eapp_print("[pe] heap_area[%d]: vaddr [%lx], start [%lx], end [%lx]\n",
-                    i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start, heap->heap_areas[i].end);
+        eapp_print("[pe] heap_area[%d]: vaddr [%lx], start [%lx]\n",
+                    i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
       }
       /* destroy stopped enclave. */
       ocall_destroy_param_t destroy_param;
@@ -297,6 +292,14 @@ int hello(unsigned long * args)
   }
 
   /* Then we restore Normal Enclave from (vma) dump struct (locally). */
+  create_param.migrate_arg = (unsigned long)(&state);
+  eapp_print("[pe] start migration from state at [%p]", (void *)(&state));
+  retval = eapp_create_enclave((unsigned long)(&create_param));
+  if (retval)
+  {
+    eapp_print("[pe] eapp_create_enclave [migrate] failed: %d\n",retval);
+  }
+  eapp_print("[pe] [migrator] Allocated [migrate] NORMAL ENCLAVE eid: [%d]\n", create_param.eid);
 
   /* exit successfully */
   eapp_print("[pe] [migrator] hello world!\n");

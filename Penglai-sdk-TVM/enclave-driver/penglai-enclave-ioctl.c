@@ -29,7 +29,8 @@ unsigned int total_enclave_page(int elf_size, int stack_size)
 int create_sbi_param(enclave_t* enclave, struct penglai_enclave_sbi_param * enclave_sbi_param,
     unsigned long paddr, unsigned long size, unsigned long entry_point,
     unsigned long free_mem,
-    unsigned long shm_vaddr, unsigned long shm_size, unsigned long caller_eid)
+    unsigned long shm_vaddr, unsigned long shm_size, 
+    unsigned long caller_eid, unsigned long migrate_arg)
 { 
   enclave_sbi_param->create_caller_eid = caller_eid;
   enclave_sbi_param->eid_ptr = (unsigned int* )__pa(&enclave->eid);
@@ -56,6 +57,7 @@ int create_sbi_param(enclave_t* enclave, struct penglai_enclave_sbi_param * encl
 
   enclave_sbi_param->type = enclave->type;
   memcpy(enclave_sbi_param->name, enclave->name, NAME_LEN);
+  enclave_sbi_param->migrate_arg = migrate_arg;
   return 0;
 }
 
@@ -293,7 +295,7 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
   create_sbi_param(enclave, &enclave_sbi_param,
       (unsigned long)(enclave->enclave_mem->paddr),
       enclave->enclave_mem->size, elf_entry, __pa(free_mem),
-      shm_vaddr, shm_size, enclave_param->eid);
+      shm_vaddr, shm_size, enclave_param->eid, enclave_param->migrate_arg);
 
   if(enclave_sbi_param.type == SERVER_ENCLAVE)
     ret = SBI_PENGLAI_1(SBI_SM_CREATE_SERVER_ENCLAVE, __pa(&enclave_sbi_param));

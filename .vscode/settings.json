@@ -36,6 +36,7 @@
         "thread.h": "c",
         "bitset": "c",
         "initializer_list": "c",
-        "utility": "c"
+        "utility": "c",
+        "enclave_mm.h": "c"
     }
 }

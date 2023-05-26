@@ -68,6 +68,7 @@ int hello(unsigned long * args)
     create_params[i].elf_file_ptr = (unsigned long)(&(create_params[i]));
     create_params[i].encl_type = NORMAL_ENCLAVE;
     create_params[i].stack_size = DEFAULT_STACK_SIZE;
+    create_params[i].migrate_arg = 0;
     /* disable shm currently */
     create_params[i].shmid = 0;
     create_params[i].shm_offset = 0;

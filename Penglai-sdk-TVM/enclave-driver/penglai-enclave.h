@@ -120,7 +120,7 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define SATP 0x180
 
 /*Abstract for enclave */
-#define ENCLAVE_DEFAULT_KBUFFER_ORDER           0
+#define ENCLAVE_DEFAULT_KBUFFER_ORDER           1
 #define ENCLAVE_DEFAULT_KBUFFER_SIZE            ((1<<ENCLAVE_DEFAULT_KBUFFER_ORDER)*RISCV_PGSIZE)
 #define NAME_LEN                                16
 /* 64*1024 \div PAGESZ => 16 */
@@ -238,8 +238,7 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
-
-
+  unsigned long migrate_arg;
 } ocall_create_param_t;
 
 typedef struct ocall_attest_param
@@ -354,7 +353,7 @@ typedef struct snapshot_mem_area
 {
   unsigned long vaddr;  // VA in PE
   unsigned long start;  // VA in NE
-  unsigned long end;    // VA in NE
+  unsigned long paddr;  // alloc by kernel
 } snapshot_mem_area_t;
 
 typedef struct snapshot_mmap_state

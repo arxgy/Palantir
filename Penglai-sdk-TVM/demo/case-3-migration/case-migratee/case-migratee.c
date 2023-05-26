@@ -62,7 +62,7 @@ int hello(unsigned long * args)
     }
   }
 
-  while (iter < 1 << 20) 
+  while (iter < 1 << 30) 
   { 
     /* wait. */
     iter++;

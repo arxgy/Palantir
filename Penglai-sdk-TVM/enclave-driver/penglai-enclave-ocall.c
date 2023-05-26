@@ -180,8 +180,29 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   penglai_printf("[sdk driver] privileged caller eid: [%d]\n", enclave_param.eid);
   penglai_printf("[sdk driver] received elf file name: [%.*s]\n", ELF_FILE_LEN, enclave_param.elf_file_name);
   enclave_param.type = ocall_create_param_local->encl_type;
+  enclave_param.migrate_arg = ocall_create_param_local->migrate_arg;
 
   // step 2. create.
+  if (enclave_param.migrate_arg)
+  {
+    snapshot_state_t *state = (snapshot_state_t *)(kbuf + sizeof(ocall_create_param_t));
+    penglai_printf("[sdk driver] sizeof(snapshot_state_t): [%lx]\n", sizeof(snapshot_state_t));
+    snapshot_mmap_state_t *mmap = &(state->mmap); 
+    snapshot_heap_state_t *heap = &(state->heap);
+    unsigned i = 0;
+    for (i = 0 ; i < mmap->mmap_sz ; i++)
+    {
+      penglai_printf("[sdk driver] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
+                  i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
+    }
+    for (i = 0 ; i < heap->heap_sz ; i++)
+    {
+      penglai_printf("[sdk driver] heap_area[%d]: vaddr [%lx], start [%lx]\n",
+                  i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
+    }
+  }
+
+  /* alloc page for each entry */
   ret = penglai_enclave_ocall_create((unsigned long)(&enclave_param));
   if (ret < 0) 
   {

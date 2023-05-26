@@ -30,6 +30,7 @@
 
 //FIXME: entry point of self hash code, may need to change for some unknown reasons.
 #define ENCLAVE_SELF_HASH_ENTRY  (0x8000)
+#define STACK_POINT 0x0000003800000000UL
 
 #define SET_ENCLAVE_METADATA(point, enclave, create_args, struct_type, base) do { \
   enclave->entry_point = point; \
@@ -426,7 +427,7 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
-
+  unsigned long migrate_arg;
 } ocall_create_param_t;
 
 typedef struct ocall_attest_param
@@ -541,7 +542,7 @@ typedef struct snapshot_mem_area
 {
   unsigned long vaddr;  // VA in PE
   unsigned long start;  // VA in NE
-  unsigned long end;    // VA in NE
+  unsigned long paddr;  // alloc by kernel
 } snapshot_mem_area_t;
 
 typedef struct snapshot_mmap_state

@@ -88,6 +88,7 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
+  unsigned long migrate_arg;
 } ocall_create_param_t;
 
 
@@ -206,7 +207,7 @@ typedef struct snapshot_mem_area
 {
   unsigned long vaddr;  // VA in PE
   unsigned long start;  // VA in NE
-  unsigned long end;    // VA in NE
+  unsigned long paddr;  // alloc by kernel
 } snapshot_mem_area_t;
 
 typedef struct snapshot_mmap_state
