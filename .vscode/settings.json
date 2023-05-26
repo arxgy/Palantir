@@ -37,6 +37,7 @@
         "bitset": "c",
         "initializer_list": "c",
         "utility": "c",
-        "enclave_mm.h": "c"
+        "enclave_mm.h": "c",
+        "enclave_vm.h": "c"
     }
 }

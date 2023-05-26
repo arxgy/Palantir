@@ -1348,13 +1348,14 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
 {
   if (!parent || !migrate_arg)
     return;
-  unsigned i;
-  // unsigned param_size;
-
-  // uintptr_t copy_to_va;
-  // void *copy_to_pa;
+  unsigned i, remain_page_size;
+  uintptr_t vaddr, paddr;
+  uintptr_t copy_to_va;
+  void *copy_to_pa;
   uintptr_t copy_from_va; 
   void *copy_from_pa;
+  struct pm_area_struct *pma;
+  struct vm_area_struct *vma;
   /**
    * Theres' a mysterious sbug. 
    * Allocated to copy_buf (on stack) will cause Store/AMO access fault (mcause = 0x7; mtval = 0x0) sometimes.
@@ -1367,8 +1368,8 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
 
   sbi_memcpy((void *)(&state), (void *)(parent->kbuffer+sizeof(ocall_create_param_t)), sizeof(snapshot_state_t));
 
-  snapshot_mmap_state_t *mmap = &(state.mmap);
-  snapshot_heap_state_t *heap = &(state.heap);
+  snapshot_mmap_state_t *mmap_state = &(state.mmap);
+  snapshot_heap_state_t *heap_state = &(state.heap);
 
   /* register copy */
   // sbi_printf("[sm] [state_migration] sizeof(thread_state_t): [%lu], sizeof(ocall_request_dump_t): [%lu]\n", sizeof(struct thread_state_t), sizeof(ocall_request_dump_t));
@@ -1376,47 +1377,158 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
   sbi_memcpy((void *)(&(enclave->thread_context)), (void *)(&(state.regs)), sizeof(ocall_request_dump_t));
   /* code above are checked */
   /* stack copy */
-  // copy_to_va = STACK_POINT;
+  copy_to_va = STACK_POINT;
   // param_size = PAGE_SIZE;
   sbi_printf("[sm] start copy stack\n");
   for (i = 0 ; i < state.stack_sz ; i++)
   {
-    copy_from_va = state.stack[i];
-    sbi_printf("[sm] copy_from_va [%lx]\n", copy_from_va);
+    vaddr = state.stack[i];
+    paddr = state.stack_pa[i];
+
+    copy_from_va = vaddr;
+    sbi_printf("[sm] [stack] copy_from_va [%lx]\n", copy_from_va);
+    if ((copy_from_va & (PAGE_SIZE-1)) != 0)
+    {
+      sbi_bug("M mode: stack address should be page-aligned.\n");
+      return;
+    }
     copy_from_pa = va_to_pa((uintptr_t *)(parent->root_page_table), (void *)copy_from_va);
     if (!copy_from_pa)
     {
       sbi_bug("M mode: state_migration: copy_from_va [%lx] can not be accessed\n", copy_from_va);
       return;
     }
-    if ((copy_from_va & (PAGE_SIZE-1)) != 0)
+
+    copy_to_va -= PAGE_SIZE;  // from high to low
+    copy_to_pa = (void *)(paddr+PAGE_SIZE);
+    sbi_memcpy(copy_to_pa, copy_from_pa, PAGE_SIZE);
+    if (check_and_set_secure_memory(paddr, PAGE_SIZE<<1) < 0)
     {
-      sbi_bug("M mode: stack address should be page-aligned.\n");
+      sbi_bug("M mode: state_migration: check_secure_memory(0x%lx, 0x%lx) failed\n", state.stack_pa[i], PAGE_SIZE<<1);
       return;
     }
-    // sbi_memcpy((void *)(buffer), copy_from_pa, param_size);
-    // /* copy from buffer to enclave & do mmap */
-    // copy_to_va -= PAGE_SIZE;
-    // copy_to_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)copy_to_va);
-    // if (!copy_to_pa)
-    // {
-    //   sbi_bug("M mode: state_migration: copy_to_va [%lx] can not be accessed\n", copy_to_va);
-    //   return;
-    // }
-    // sbi_memcpy(copy_to_pa, (void *)(buffer), param_size);
+    pma = (struct pm_area_struct *)(paddr);
+    vma = (struct vm_area_struct *)(paddr + sizeof(struct pm_area_struct));
+    pma->paddr = paddr;
+    pma->size = PAGE_SIZE << 1;
+    pma->pm_next = NULL;
+
+    vma->va_start = vaddr;
+    vma->va_end = vaddr + PAGE_SIZE;
+    vma->vm_next = NULL;
+    vma->pma = pma;
+    if (insert_vma(&(enclave->stack_vma), vma, ENCLAVE_DEFAULT_STACK_BASE) < 0)
+    {
+      sbi_bug("[sm] [stack] insert vma failed.\n");
+    }
+    insert_pma(&(enclave->pma_list), pma);
+    mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+PAGE_SIZE, PAGE_SIZE);
   }
   sbi_printf("[sm] start copy mmap\n");
 
   /* mmap copy */
-  for (i = 0 ; i < mmap->mmap_sz ; i++)
+  for (i = 0 ; i < mmap_state->mmap_sz ; i++)
   {
-    
+    vaddr = mmap_state->mmap_areas[i].start;  // vaddr: restore the vma of destroyed NE.
+    paddr = mmap_state->mmap_areas[i].paddr;
+    copy_from_va = mmap_state->mmap_areas[i].vaddr; // .vaddr: save the vaddr in PE
+    copy_from_pa = va_to_pa((uintptr_t *)(parent->root_page_table), (void *)copy_from_va);
+    copy_to_va = vaddr;
+    copy_to_pa = (void *)(paddr+PAGE_SIZE);
+
+    if (!copy_from_pa)
+    {
+      sbi_bug("M mode: state_migration: copy_from_va [%lx] can not be accessed\n", copy_from_va);
+      return;    
+    }
+    sbi_printf("[sm] [mmap][%u] copy_from_va [%lx]\n", i, copy_from_va);
+
+    remain_page_size = PAGE_SIZE - (copy_from_va & (PAGE_SIZE-1));
+    if (remain_page_size < PAGE_SIZE)
+    {
+      sbi_memcpy(copy_to_pa, copy_from_pa, remain_page_size);
+      sbi_memcpy(copy_to_pa+remain_page_size,
+                 va_to_pa((uintptr_t *)(parent->root_page_table), (void *)(copy_from_va+remain_page_size)),
+                 PAGE_SIZE-remain_page_size);
+    }
+    else 
+    {
+      sbi_memcpy(copy_to_pa, copy_from_pa, PAGE_SIZE);
+    }
+    if (check_and_set_secure_memory(paddr, PAGE_SIZE<<1) < 0)
+    {
+      sbi_bug("M mode: state_migration: check_secure_memory(0x%lx, 0x%lx) failed\n", state.stack_pa[i], PAGE_SIZE<<1);
+      return;
+    }
+    pma = (struct pm_area_struct *)(paddr);
+    vma = (struct vm_area_struct *)(paddr + sizeof(struct pm_area_struct));
+    pma->paddr = paddr;
+    pma->size = PAGE_SIZE << 1;
+    pma->pm_next = NULL;
+
+    vma->va_start = vaddr;
+    vma->va_end = vaddr + PAGE_SIZE;
+    vma->vm_next = NULL;
+    vma->pma = pma;
+    if (insert_vma(&(enclave->stack_vma), vma, ENCLAVE_DEFAULT_MMAP_BASE) < 0)
+    {
+      sbi_bug("[sm] insert vma failed.\n");
+    }
+    insert_pma(&(enclave->pma_list), pma);
+    mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+PAGE_SIZE, PAGE_SIZE);
   }
   sbi_printf("[sm] start copy heap\n");
   /* heap copy */
-  for (i = 0 ; i < heap->heap_sz ; i++)
+  for (i = 0 ; i < heap_state->heap_sz ; i++)
   {
+    vaddr = heap_state->heap_areas[i].start;
+    paddr = heap_state->heap_areas[i].paddr;
+    copy_from_va = heap_state->heap_areas[i].vaddr;
+    copy_from_pa = va_to_pa((uintptr_t *)(parent->root_page_table), (void *)copy_from_va);
+    copy_to_va = vaddr;
+    copy_to_pa = (void *)(paddr+PAGE_SIZE);
 
+    if (!copy_from_pa)
+    {
+      sbi_bug("M mode: state_migration: copy_from_va [%lx] can not be accessed\n", copy_from_va);
+      return;    
+    }
+    sbi_printf("[sm] [heap][%u] copy_from_va [%lx]\n", i, copy_from_va);
+
+    remain_page_size = PAGE_SIZE - (copy_from_va & (PAGE_SIZE-1));
+    if (remain_page_size < PAGE_SIZE)
+    {
+      sbi_memcpy(copy_to_pa, copy_from_pa, remain_page_size);
+      sbi_memcpy(copy_to_pa+remain_page_size,
+                 va_to_pa((uintptr_t *)(parent->root_page_table), (void *)(copy_from_va+remain_page_size)),
+                 PAGE_SIZE-remain_page_size);
+    }
+    else 
+    {
+      sbi_memcpy(copy_to_pa, copy_from_pa, PAGE_SIZE);
+    }
+    if (check_and_set_secure_memory(paddr, PAGE_SIZE<<1) < 0)
+    {
+      sbi_bug("M mode: state_migration: check_secure_memory(0x%lx, 0x%lx) failed\n", state.stack_pa[i], PAGE_SIZE<<1);
+      return;
+    }
+    pma = (struct pm_area_struct *)(paddr);
+    vma = (struct vm_area_struct *)(paddr + sizeof(struct pm_area_struct));
+    pma->paddr = paddr;
+    pma->size = PAGE_SIZE << 1;
+    pma->pm_next = NULL;
+
+    vma->va_start = vaddr;
+    vma->va_end = vaddr + PAGE_SIZE;
+    vma->pma = pma;
+    vma->vm_next = enclave->heap_vma;
+    enclave->heap_vma = vma;
+    if (vma->va_end > enclave->_heap_top)
+    {
+      enclave->_heap_top = vma->va_end;
+    }
+    insert_pma(&(enclave->pma_list), pma);
+    mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+PAGE_SIZE, PAGE_SIZE);
   }
   
 }
