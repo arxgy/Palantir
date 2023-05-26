@@ -2720,7 +2720,7 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   uintptr_t ret = 0;
   unsigned remain_page_size;
   unsigned param_size = inspect_size;
-  sbi_printf("[sm] [privil_inspect_after_resume] param copy size: [%lu]\n", inspect_size);
+  // sbi_printf("[sm] [privil_inspect_after_resume] param copy size: [%lu]\n", inspect_size);
   /* write data buffer back to PE. */
   
   void *inspect_result_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)inspect_result);
@@ -2734,11 +2734,6 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   if (param_size > remain_page_size)
   {
     sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), remain_page_size);
-    if (!va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(inspect_result+remain_page_size)))
-    {
-      ret = -1UL;
-      sbi_bug("[sm] ERROR: next page is NULL/invalid.\n");
-    }
     sbi_memcpy(va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(inspect_result+remain_page_size)),
               (void *)(enclave->kbuffer + remain_page_size),
               param_size - remain_page_size);

@@ -239,6 +239,11 @@ int hello(unsigned long * args)
         insert_mem_area(mem_area, (unsigned long)copy_dest, copy_cur, vma.va_end);
       }
       /* check */
+      for (i = 0 ; i < state.stack_sz ; i++)
+      {
+        eapp_print("[pe] state[%d]: vaddr [%lx], start [%lx], end [%lx]\n",
+                    i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start, mmap->mmap_areas[i].end);
+      }
       for (i = 0 ; i < mmap->mmap_sz ; i++)
       {
         eapp_print("[pe] mmap_area[%d]: vaddr [%lx], start [%lx], end [%lx]\n",

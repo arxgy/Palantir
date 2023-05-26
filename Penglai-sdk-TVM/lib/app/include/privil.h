@@ -227,6 +227,9 @@ typedef struct snapshot_heap_state
  * \param stack_sz #page of stack
  * \param stack is VA in PE, contains stack pages in NE 
  *        ([0] means highest page)
+ *        stack[0]: [STACK_BASE -   PAGESZ] to [STACK_BASE]
+ *        stack[1]: [STACK_BASE - 2*PAGESZ] to [STACK_BASE - PAGESZ]
+ *        ...
  * \param mmap stores all mmap vma and its contents (VA in PE)
  * \param heap stores all heap vma and its contents (VA in PE)
 */

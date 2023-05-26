@@ -21,8 +21,10 @@ int hello(unsigned long * args)
   req.inspect_request = NULL;
   req.share_page_request = NULL;
   eapp_pause_enclave((unsigned long)(&req));
-  void *content = eapp_mmap(NULL, PAGE_SIZE+4095);
-  eapp_print("[ne] eapp_mmap address: [%p]\n", content);
+  void *content = NULL;
+
+  // content = eapp_mmap(NULL, PAGE_SIZE+4095);
+  // eapp_print("[ne] eapp_mmap address: [%p]\n", content);
   
   int i = 0;
   for (i = 0; i < 5 ; i++)
@@ -31,11 +33,35 @@ int hello(unsigned long * args)
     eapp_print("[ne] malloc address: [%p]\n", p);
     eapp_pause_enclave((unsigned long)(&req));
   }
-  content = eapp_mmap(NULL, PAGE_SIZE*3);
+  content = eapp_mmap(NULL, PAGE_SIZE);
   eapp_print("[ne] eapp_mmap address: [%p]\n", content);
   eapp_pause_enclave((unsigned long)(&req));
 
   int iter = 0;
+  memset((void *)content, 0, PAGE_SIZE);
+
+  char *c_content = (char *)content;
+  for (iter = 0 ; iter < PAGE_SIZE ; iter++)
+  {
+    switch (iter % 4)
+    {
+    case 0:
+      c_content[iter] = '0';
+      break;
+    case 1:
+      c_content[iter] = '1';
+      break;
+    case 2:
+      c_content[iter] = '2';
+      break;
+    case 3:
+      c_content[iter] = '3';
+      break;
+    default:
+      break;
+    }
+  }
+
   while (iter < 1 << 20) 
   { 
     /* wait. */
