@@ -75,6 +75,7 @@ struct penglai_enclave_user_param
   unsigned long retval;
   char elf_file_name[ELF_FILE_LEN];
   unsigned long migrate_arg;
+  unsigned long migrate_stack_pages;
 };
 
 struct penglai_enclave_sbi_param

@@ -311,15 +311,16 @@ int penglai_enclave_elfmemsize(void* __user elf_ptr,   int* size)
   return 0;
 } 
 
-int privil_enclave_eapp_loading(enclave_mem_t* enclave_mem,  void* elf_ptr, unsigned long size, vaddr_t * elf_entry_point, vaddr_t stack_ptr, int stack_size, enclave_type_t type)
+int privil_enclave_eapp_loading(enclave_mem_t* enclave_mem,  void* elf_ptr, unsigned long size, vaddr_t * elf_entry_point, vaddr_t stack_ptr, int stack_size, enclave_type_t type, unsigned long migrate_stack_pages)
 {
   vaddr_t addr;
 
   // Initialize the stack
-  for(addr = stack_ptr - stack_size; addr < stack_ptr; addr += RISCV_PGSIZE)
+  for(addr = stack_ptr - stack_size; addr < stack_ptr - migrate_stack_pages*RISCV_PGSIZE; addr += RISCV_PGSIZE)
   {
     enclave_alloc_page(enclave_mem, addr, ENCLAVE_STACK_PAGE);
   }
+  penglai_printf("[sdk driver] We skipped [%lu] stack pages.\n", migrate_stack_pages);
 
   // Load the enclave code
   if(privil_enclave_loadelf(enclave_mem, elf_ptr, size, elf_entry_point, type) < 0)

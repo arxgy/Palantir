@@ -272,7 +272,7 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       goto destroy_enclave;
     }
     if (privil_enclave_eapp_loading(enclave->enclave_mem, elf_file_buf, elf_size, 
-        &elf_entry, STACK_POINT, stack_size, enclave->type))
+        &elf_entry, STACK_POINT, stack_size, enclave->type, enclave_param->migrate_stack_pages))
     {
       penglai_eprintf("privil_enclave_eapp_loading is failed\n");;
       goto destroy_enclave;

@@ -381,6 +381,7 @@ typedef struct snapshot_state
   ocall_request_dump_t regs;
   unsigned long stack_sz;
   unsigned long stack[DEFAULT_STACK_PAGES];  
+  unsigned long stack_pa[DEFAULT_STACK_PAGES];
   snapshot_mmap_state_t mmap;
   snapshot_heap_state_t heap;
 } snapshot_state_t;
