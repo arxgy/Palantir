@@ -183,6 +183,7 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   enclave_param.migrate_arg = ocall_create_param_local->migrate_arg;
 
   // step 2. create.
+  unsigned long vaddr;
   if (enclave_param.migrate_arg)
   {
     snapshot_state_t *state = (snapshot_state_t *)(kbuf + sizeof(ocall_create_param_t));
@@ -194,11 +195,28 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
     {
       penglai_printf("[sdk driver] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
                   i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
+      /* The first for vma & pma; The second for content copy */
+      vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
+      if (!vaddr)
+      {
+        ret = -1;
+        penglai_eprintf("handle_ocall_create_enclave[migration-mmap]: penglai_get_free_pages is failed\r\n");
+        return ret;
+      }
+      mmap->mmap_areas[i].paddr = __pa(vaddr);
     }
     for (i = 0 ; i < heap->heap_sz ; i++)
     {
       penglai_printf("[sdk driver] heap_area[%d]: vaddr [%lx], start [%lx]\n",
                   i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
+      vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
+      if (!vaddr)
+      {
+        ret = -1;
+        penglai_eprintf("handle_ocall_create_enclave[migration-heap]: penglai_get_free_pages is failed\r\n");
+        return ret;
+      }
+      heap->heap_areas[i].paddr = __pa(vaddr);
     }
   }
 

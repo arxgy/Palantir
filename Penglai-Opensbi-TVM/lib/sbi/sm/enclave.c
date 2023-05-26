@@ -1348,7 +1348,8 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
 {
   if (!parent || !migrate_arg)
     return;
-  unsigned i, param_size;
+  unsigned i;
+  // unsigned param_size;
 
   // uintptr_t copy_to_va;
   // void *copy_to_pa;
@@ -1361,7 +1362,7 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
    *  by Ganxiang Yang @ May 26, 2023. 
   */
   // char copy_buf[PAGE_SIZE];
-  char buffer[PAGE_SIZE]; // larger than sizeof(state)
+  // char buffer[PAGE_SIZE]; // larger than sizeof(state)
   snapshot_state_t state;
 
   sbi_memcpy((void *)(&state), (void *)(parent->kbuffer+sizeof(ocall_create_param_t)), sizeof(snapshot_state_t));
@@ -1376,7 +1377,7 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
   /* code above are checked */
   /* stack copy */
   // copy_to_va = STACK_POINT;
-  param_size = PAGE_SIZE;
+  // param_size = PAGE_SIZE;
   sbi_printf("[sm] start copy stack\n");
   for (i = 0 ; i < state.stack_sz ; i++)
   {
@@ -1393,15 +1394,25 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
       sbi_bug("M mode: stack address should be page-aligned.\n");
       return;
     }
-    sbi_memcpy((void *)(buffer), copy_from_pa, param_size);
-    /* copy from buffer to enclave & do mmap */
-    
+    // sbi_memcpy((void *)(buffer), copy_from_pa, param_size);
+    // /* copy from buffer to enclave & do mmap */
+    // copy_to_va -= PAGE_SIZE;
+    // copy_to_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)copy_to_va);
+    // if (!copy_to_pa)
+    // {
+    //   sbi_bug("M mode: state_migration: copy_to_va [%lx] can not be accessed\n", copy_to_va);
+    //   return;
+    // }
+    // sbi_memcpy(copy_to_pa, (void *)(buffer), param_size);
   }
+  sbi_printf("[sm] start copy mmap\n");
+
   /* mmap copy */
   for (i = 0 ; i < mmap->mmap_sz ; i++)
   {
-
+    
   }
+  sbi_printf("[sm] start copy heap\n");
   /* heap copy */
   for (i = 0 ; i < heap->heap_sz ; i++)
   {
@@ -1595,7 +1606,7 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
   hash_enclave(enclave, (void*)(enclave->hash), 0);
   copy_word_to_host((unsigned int*)create_args.eid_ptr, enclave->eid);
-
+  sbi_printf("[sm] now we end create?\n");
   //Sync and flush the remote TLB entry.
   tlb_remote_sfence();
   sbi_printf("[sm] now we end create!\n");
