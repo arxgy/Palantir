@@ -1,0 +1,10 @@
+*.o
+*.dump
+aes
+bigint
+dhrystone
+miniz
+norx
+primes
+qsort
+sha512-baseline

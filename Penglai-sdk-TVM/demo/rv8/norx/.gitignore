@@ -1,0 +1,4 @@
+fork-host
+*.dump
+*.o
+*.S

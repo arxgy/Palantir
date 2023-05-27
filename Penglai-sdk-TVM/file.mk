@@ -1,6 +1,7 @@
 SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/enclave-driver/penglai.ko \
 	$(srcdir)/Penglai-sdk-TVM/demo/host/host \
+	$(srcdir)/Penglai-sdk-TVM/demo/host-measure/host-measure \
 	$(srcdir)/Penglai-sdk-TVM/demo/fork-host/fork-host \
 	$(srcdir)/Penglai-sdk-TVM/demo/hello-world/hello-world \
 	$(srcdir)/Penglai-sdk-TVM/demo/ne-hello/ne-hello \
@@ -11,6 +12,19 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee/case-sharee \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharee-plus/case-sharee-plus \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharer/case-sharer \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8/aes/aes \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8/dhrystone/dhrystone \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8/norx/norx \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8/primes/primes \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8/qsort/qsort \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8/sha512/sha512 \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/aes/aes-baseline \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/dhrystone/dhrystone-baseline \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/norx/norx-baseline \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/primes/primes-baseline \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/qsort/qsort-baseline \
+	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/sha512/sha512-baseline \
+	$(srcdir)/Penglai-sdk-TVM/demo/coremark/coremark \
 	$(srcdir)/Penglai-sdk-TVM/demo/relay-page/relay-page \
 	$(srcdir)/Penglai-sdk-TVM/demo/mem/mem \
 	$(srcdir)/Penglai-sdk-TVM/demo/IPC/caller/caller \
