@@ -320,8 +320,6 @@ int privil_enclave_eapp_loading(enclave_mem_t* enclave_mem,  void* elf_ptr, unsi
   {
     enclave_alloc_page(enclave_mem, addr, ENCLAVE_STACK_PAGE);
   }
-  penglai_printf("[sdk driver] We skipped [%lu] stack pages.\n", migrate_stack_pages);
-
   // Load the enclave code
   if(privil_enclave_loadelf(enclave_mem, elf_ptr, size, elf_entry_point, type) < 0)
   {

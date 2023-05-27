@@ -177,8 +177,6 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   enclave_param.shm_size = ocall_create_param_local->shm_size;
   memcpy(enclave_param.name, ocall_create_param_local->encl_name, NAME_LEN);
   memcpy(enclave_param.elf_file_name, ocall_create_param_local->elf_file_name, ELF_FILE_LEN);
-  penglai_printf("[sdk driver] privileged caller eid: [%d]\n", enclave_param.eid);
-  penglai_printf("[sdk driver] received elf file name: [%.*s]\n", ELF_FILE_LEN, enclave_param.elf_file_name);
   enclave_param.type = ocall_create_param_local->encl_type;
   enclave_param.migrate_arg = ocall_create_param_local->migrate_arg;
   enclave_param.migrate_stack_pages = 0;
@@ -188,7 +186,6 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   if (enclave_param.migrate_arg)
   {
     snapshot_state_t *state = (snapshot_state_t *)(kbuf + sizeof(ocall_create_param_t));
-    penglai_printf("[sdk driver] sizeof(snapshot_state_t): [%lx]\n", sizeof(snapshot_state_t));
     enclave_param.migrate_stack_pages = state->stack_sz;
     snapshot_mmap_state_t *mmap = &(state->mmap); 
     snapshot_heap_state_t *heap = &(state->heap);
@@ -206,8 +203,6 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
     }
     for (i = 0 ; i < mmap->mmap_sz ; i++)
     {
-      penglai_printf("[sdk driver] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
-                  i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
       /* The first for vma & pma; The second for content copy */
       vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
       if (!vaddr)
@@ -220,8 +215,6 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
     }
     for (i = 0 ; i < heap->heap_sz ; i++)
     {
-      penglai_printf("[sdk driver] heap_area[%d]: vaddr [%lx], start [%lx]\n",
-                  i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
       vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
       if (!vaddr)
       {
@@ -239,18 +232,6 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   {
     penglai_eprintf("handle_ocall_create_enclave: penglai_enclave_ocall_create is failed\n"); 
   }
-  penglai_printf("[sdk driver] slab-level launcher enclave eid: [%u]\n", ocall_create_param_local->eid);
-  penglai_printf("[sdk driver] idr-level launchee enclave eid: [%lu]\n", enclave_param.eid);
-  enclave_t *launchee = get_enclave_by_id(enclave_param.eid);
-  if (launchee != NULL)
-  {
-    penglai_printf("[sdk driver] slab-level launchee enclave eid: [%lu]\n", launchee->eid);
-
-  }
-  penglai_printf("[sdk driver] address of enclave->ocall_arg1: [%p]\n", (void *)&(enclave->ocall_arg1));
-  penglai_printf("[sdk driver] content of enclave->ocall_arg1: [%lu]\n", enclave->ocall_arg1);
-  penglai_printf("[sdk driver] content of resume_arg_addr: [%lu]\n", resume_arg_addr);
-  // ocall_create_param_local->eid = enclave_param.eid;
   // step 3. resume.
   /* write parameter back to vaddr struct in userspace */
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_CREATE_ENCLAVE, resume_arg_addr, enclave_param.eid);
@@ -278,13 +259,11 @@ int handle_ocall_attest_enclave(enclave_instance_t *enclave_instance, enclave_t 
    * Since we cannot acquire idr-layer eid in SM, we jump to driver to handle this.
    */
   ocall_attest_param_t *ocall_attest_param_local = (ocall_attest_param_t *)(kbuf);
-  penglai_printf("[sdk driver] attestee idr eid: [%d]\n", ocall_attest_param_local->attest_eid);
   attest_enclave = get_enclave_by_id(ocall_attest_param_local->attest_eid);
   if (!attest_enclave)
   {
     penglai_eprintf("[sdk driver] failed to find this attestee enclave\n");
   }
-  penglai_printf("[sdk driver] attestee eid from get_enclave_by_id: [%u]\n", attest_enclave->eid);
 
   /**
    * step 2. return the slab-layer eid back to SM.
@@ -318,8 +297,6 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
   */
   ocall_run_param_t *ocall_run_param_local = (ocall_run_param_t *) (kbuf);
   run_enclave = get_enclave_by_id(ocall_run_param_local->run_eid);
-  penglai_printf("[sdk driver] received run_eid (idr) [%d]\n", ocall_run_param_local->run_eid);
-  penglai_printf("[sdk driver] target run_eid (slab) [%d]\n", run_enclave->eid);
 
   struct penglai_enclave_user_param enclave_param;
   enclave_param.eid = ocall_run_param_local->run_eid;
@@ -345,8 +322,6 @@ int handle_ocall_run_enclave(enclave_instance_t *enclave_instance, enclave_t *en
    * step 3. return to PE
    *          return with reason (IRQ / EXIT / ...)
   */
-  penglai_printf("[sdk driver] return_reason: [%lu]\n", return_reason);
-  penglai_printf("[sdk driver] return_value: [%lu]\n", return_value);
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RUN_ENCLAVE, return_reason, return_value); 
   
   return ret;
@@ -384,9 +359,6 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   */
   ocall_run_param_t *ocall_resume_param_local = (ocall_run_param_t *) (kbuf);
   resume_enclave = get_enclave_by_id(ocall_resume_param_local->run_eid);
-  penglai_printf("[sdk driver] received resume_eid (idr) [%d]\n", ocall_resume_param_local->run_eid);
-  penglai_printf("[sdk driver] target resume_eid (slab) [%d]\n", resume_enclave->eid);
-  penglai_printf("[sdk driver] target enclave resume reason: [%d]\n", ocall_resume_param_local->resume_reason);
 
   struct penglai_enclave_user_param enclave_param;
   enclave_param.eid = ocall_resume_param_local->run_eid;
@@ -408,7 +380,6 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   switch (ocall_resume_param_local->resume_reason)
   {
     case RETURN_USER_NE_REQUEST:
-      penglai_printf("[sdk driver] eid [%lu] do [SBI_SM_RESPONSE_ENCLAVE]\n", resume_id);
       ret = SBI_PENGLAI_3(SBI_SM_RESPONSE_ENCLAVE, resume_enclave->eid, resume_id, ocall_resume_param_local->response_arg);
     case RETURN_USER_NE_IRQ:
       return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
@@ -433,8 +404,6 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
    *         return with reason (IRQ / EXIT / ...)
    *         For requests, we write data back to PE.
   */
-  penglai_printf("[sdk driver] return_reason: [%lu]\n", return_reason);
-  penglai_printf("[sdk driver] return_value: [%lu]\n", return_value);
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_RESUME_ENCLAVE, return_reason, return_value); 
   return ret;
 }
@@ -465,8 +434,6 @@ int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t
   {
     penglai_eprintf("[sdk driver] invalid enclave target: [%d] (slab)\n", ocall_destroy_param_local->destroy_eid);
   }
-  penglai_printf("[sdk driver] target destroy enclave eid [idr] is: [%lu]\n", ocall_destroy_param_local->destroy_eid);
-  penglai_printf("[sdk driver] target destroy enclave eid [slab] is: [%lu]\n", destroy_enclave->eid);
 
   struct penglai_enclave_user_param enclave_param;
   enclave_param.eid = ocall_destroy_param_local->destroy_eid;
@@ -522,10 +489,6 @@ int handle_ocall_inspect_enclave(enclave_instance_t *enclave_instance, enclave_t
   ocall_inspect_param_t ocall_inspect_param_local;
   memcpy((void *)(&ocall_inspect_param_local), ocall_inspect_param_kbuf, sizeof(ocall_inspect_param_t));
   inspect_enclave = get_enclave_by_id(ocall_inspect_param_local.inspect_eid);
-  // penglai_printf("[sdk driver] inspect eid (idr-layer): [%lu]\n", ocall_inspect_param_local.inspect_eid);
-  // penglai_printf("[sdk driver] inspect address: [%lx]\n", ocall_inspect_param_local.inspect_address);
-  // penglai_printf("[sdk driver] inspect size: [%lu]\n", ocall_inspect_param_local.inspect_size);
-  // penglai_printf("[sdk driver] inspect result: [%lu]\n", ocall_inspect_param_local.inspect_result);
   if (!inspect_enclave)
   {
     penglai_eprintf("[sdk driver] target enclave [%d] cannot be accessed.\n", ocall_inspect_param_local.inspect_eid);
@@ -650,7 +613,6 @@ int penglai_enclave_ocall(enclave_instance_t *enclave_instance, enclave_t *encla
       }
       else if (ocall_func_id == OCALL_RETURN_RELAY_PAGE)
       {
-        penglai_printf("penglai_enclave_ocall: [%d]\n", ocall_func_id);
         ret = ENCLAVE_RETURN_USER_MODE;
         break;
       }

@@ -181,23 +181,18 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
 
     order = ilog2(total_enclave_page(elf_size, stack_size)- 1) + 1;
     total_pages = 0x1 << order;
-    penglai_printf("total_pages: [%ld]\n", total_pages);
     if(check_eapp_memory_size(elf_size, stack_size) < 0)
     {
       penglai_eprintf("eapp memory is out of bound \n");
       return -1;
     }
     spin_lock(&enclave_create_lock);
-
     enclave = create_enclave(total_pages, enclave_param->name, enclave_param->type);
-    penglai_printf("[sdk driver] enclave_mem.paddr: [%lu]\n", enclave->enclave_mem->paddr);
-
     if(!enclave)
     {
       penglai_eprintf("cannot create enclave\n");
       goto destroy_enclave;
     }
-
     if(penglai_enclave_eapp_loading(enclave->enclave_mem, elf_ptr, elf_size, 
           &elf_entry, STACK_POINT, stack_size, enclave->type))
     {
@@ -222,7 +217,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       return -1;
     }
     memcpy(elf_file_name, enclave_param->elf_file_name, ELF_FILE_LEN);
-    // penglai_printf("[sdk driver] elf_file_name:[%s]\n", elf_file_name);
 
     struct file *elf_file = filp_open(elf_file_name, O_RDONLY, 0);
     if (IS_ERR(elf_file))
@@ -322,7 +316,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
     goto destroy_enclave;
   }
   enclave_param->eid = enclave_idr_alloc(enclave);
-  penglai_printf("[sdk driver] enclave_idr_alloc: [%lu]\n", enclave_param->eid); 
   spin_unlock(&enclave_create_lock);
   if (elf_file_name)
     kfree(elf_file_name);
@@ -555,7 +548,6 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
         ret = -1;
         penglai_eprintf("penglai_enclave_run: rerun reason is error %d\n", enclave_param->rerun_reason);
     }
-    penglai_printf("[sdk driver] goto resume_for_rerun with reason [%d];\n", enclave_param->rerun_reason);
     goto resume_for_rerun;
   }
   // First time to run enclave
@@ -628,8 +620,6 @@ int penglai_enclave_run(struct file *filep, unsigned long args)
       ret = SBI_PENGLAI_2(SBI_SM_RUN_ENCLAVE, enclave->eid, __pa(&enclave_run_sbi_param));
     }
     resume_id = enclave->eid;
-    penglai_printf("[sdk driver] NEs resume_id: [%lu]\n", resume_id);
-    penglai_printf("[sdk driver] run with return value: [%d]\n", ret);
   } 
   
   //handler the ocall from enclave;
@@ -646,43 +636,32 @@ resume_for_rerun:
       }
       else 
       {
-        printk("[sdk driver] hang NE for [ENCLAVE_TIMER_IRQ]\n");
         ret = RETURN_USER_NE_IRQ;
         break;
       resume_ne_irq:
-        printk("[sdk driver] resume NE from [ENCLAVE_TIMER_IRQ]\n");
         ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_TIMER_IRQ);
-        printk("[sdk driver] resume NE from [ENCLAVE_TIMER_IRQ], retval [%d]\n", ret);
       }
     }
     else if(ret == ENCLAVE_RETURN_MONITOR_MODE)
     {
-      printk("[sdk driver] [penglai_enclave_rerun]\n");
       ret = penglai_enclave_rerun(enclave_instance, enclave, resume_id, enclave_param->isShadow);  
-      printk("[sdk driver] return from [penglai_enclave_rerun]\n");
     }
     else if (ret == ENCLAVE_NE_REQUEST)
     {
-      printk("[sdk driver] hang NE for [ENCLAVE_NE_REQUEST]\n");
       ret = RETURN_USER_NE_REQUEST;
-      /* transfer the control to PE */
       break;
     resume_ne_request:  
-      printk("[sdk driver] resume NE for [ENCLAVE_NE_REQUEST]\n");
-      /* todo. just switch to NE for normal execution. */
       ret = SBI_PENGLAI_2(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_REQUEST);
     }
     else{
       ret = penglai_enclave_ocall(enclave_instance, enclave, resume_id, enclave_param->isShadow);  
     }
   }
-  printk("[sdk driver] [OUT LOOP]\n");
 
   if (enclave_param->isShadow && enclave_instance)
     enclave_param->retval = enclave_instance->retval;
   else if (enclave)
     enclave_param->retval = enclave->retval;
-  printk("[sdk driver] enclave return with [%d]\n", ret);
   if(ret < 0)
   {
     penglai_eprintf("sbi call run enclave is failed \n");

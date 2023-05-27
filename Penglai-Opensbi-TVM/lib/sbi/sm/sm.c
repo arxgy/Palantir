@@ -897,7 +897,6 @@ uintptr_t sm_run_enclave(uintptr_t* regs, uintptr_t eid, uintptr_t enclave_run_a
     return ENCLAVE_ERROR;
 
   retval = run_enclave(regs, (unsigned int)eid, enclave_sbi_param_local);
-  sbi_printf("[sm] run_enclave return!\n");
   return retval;
 }
 

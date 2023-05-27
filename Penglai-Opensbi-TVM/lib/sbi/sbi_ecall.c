@@ -156,7 +156,6 @@ int enclave_call_trap(struct sbi_trap_regs* regs)
 	{
 		case SBI_EXIT_ENCLAVE:
 			retval = sm_exit_enclave((uintptr_t*)regs, arg0);
-			sbi_printf("[sbi] out of SBI_EXIT_ENCLAVE\n");
 			break;
 		case SBI_ENCLAVE_OCALL:
 			// sbi_printf("[sbi] into SBI_ENCLAVE_OCALL\n");

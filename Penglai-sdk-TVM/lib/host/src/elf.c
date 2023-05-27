@@ -37,12 +37,6 @@ void elf_args_init(struct elf_args* elf_args, char *filename)
   {
     sum = sum+ (int) (((char *)elf_args->ptr)[iter]);
   }
-  printf("launched enclave sum: [%lu]\n", sum);
-  // int buf_size = elf_args->size;
-
-  // printf("launched enclave:---------\n\n %.*s \n---------\n",  
-  //         buf_size, (char *)(elf_args->ptr));
-
   return;
 }
 

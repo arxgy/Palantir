@@ -207,12 +207,9 @@ struct link_mem_t* init_mem_link(unsigned long mem_size, unsigned long slab_size
 {
   struct link_mem_t* head;
   unsigned long resp_size = 0;
-  sbi_printf("[sm] start mm_alloc\n");
   head = (struct link_mem_t*)mm_alloc(mem_size, &resp_size);
-  sbi_printf("[sm] requested size: [%lu]; given size: [%lu]\n", mem_size, resp_size);
 
   if(head == NULL) {
-    sbi_printf("[sm] mm_alloc return with NULL\n");
     return NULL;
   }
   else
@@ -646,7 +643,6 @@ struct children_enclave_t* __alloc_children(struct link_mem_t *metadata_head, st
   
   if (metadata_head == NULL)
   {
-    sbi_printf("[sm] start init_mem_link\n");
     metadata_head = init_mem_link(CHILDREN_METADATA_REGION_SIZE, sizeof(struct children_enclave_t));
     if(!metadata_head)
     {
@@ -655,8 +651,6 @@ struct children_enclave_t* __alloc_children(struct link_mem_t *metadata_head, st
     }
     metadata_tail = metadata_head;
   }
-  if (metadata_head)
-    sbi_printf("[sm] the metadata_head address is [%p]\n", metadata_head);
   for (cur = metadata_head; cur != NULL; cur = cur->next_link_mem)
   {
     for (i = 0; i < (cur->slab_num); i++)
@@ -688,8 +682,6 @@ struct children_enclave_t* __alloc_children(struct link_mem_t *metadata_head, st
     enclave->state = FRESH;  
   }
   *ptr = (uintptr_t)metadata_head;
-  if (enclave)
-    sbi_printf("[sm] our allocated children address: [%p]\n", enclave);
   /* if return NULL, higher layer function must return ENCLAVE_NO_MEM */
 alloc_children_out: 
   return enclave;
@@ -751,20 +743,14 @@ struct children_enclave_t* __get_children(int eid, struct link_mem_t *metadata_h
   struct children_enclave_t *enclave;
   int i = 0, found = 0;
 
-  // if (metadata_head)
-  //   sbi_printf("[sm] pointed address of metadata_head: [%p]\n", metadata_head);
-  // else 
-  //   sbi_printf("[sm] address of metadata_head: [%p]\n", metadata_head);
   for (cur = metadata_head; cur != NULL; cur = cur->next_link_mem)
   {
 
-    // sbi_printf("[sm] current cur: [%p]\n", cur);
     for (i = 0; i < (cur->slab_num); i++)
     {
       enclave = (struct children_enclave_t*)(cur->addr) + i;
 
       if (enclave->state == FRESH && enclave->eid == eid) {
-        // sbi_printf("[sm] I found it! address is [%p]\n", enclave);
         found = 1;
         break;
       }
@@ -1372,21 +1358,15 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
   snapshot_heap_state_t *heap_state = &(state.heap);
 
   /* register copy */
-  // sbi_printf("[sm] [state_migration] sizeof(thread_state_t): [%lu], sizeof(ocall_request_dump_t): [%lu]\n", sizeof(struct thread_state_t), sizeof(ocall_request_dump_t));
-  sbi_printf("[sm] start copy register\n");
   sbi_memcpy((void *)(&(enclave->thread_context)), (void *)(&(state.regs)), sizeof(ocall_request_dump_t));
-  /* code above are checked */
   /* stack copy */
   copy_to_va = STACK_POINT;
-  // param_size = PAGE_SIZE;
-  sbi_printf("[sm] start copy stack\n");
   for (i = 0 ; i < state.stack_sz ; i++)
   {
     vaddr = state.stack[i];
     paddr = state.stack_pa[i];
 
     copy_from_va = state.stack[i];
-    sbi_printf("[sm] [stack] copy_from_va [%lx]\n", copy_from_va);
     if ((copy_from_va & (PAGE_SIZE-1)) != 0)
     {
       sbi_bug("M mode: stack address should be page-aligned.\n");
@@ -1424,19 +1404,13 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
     insert_pma(&(enclave->pma_list), pma);
     mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), copy_to_va, (unsigned long)(copy_to_pa), PAGE_SIZE);
 
-    sbi_printf("[sm] checking stack mapping...\n");
     void *test_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(STACK_POINT - PAGE_SIZE));
     if (!test_pa)
     {
       sbi_printf("[sm] mmap stack failed\n");
     }
-    else 
-    {
-      sbi_printf("[sm] mmap stack result: [%p], copy_to_pa: [%p]\n", test_pa, copy_to_pa);
-    }
   }
 
-  sbi_printf("[sm] start copy mmap\n");
 
   /* mmap copy */
   for (i = 0 ; i < mmap_state->mmap_sz ; i++)
@@ -1453,7 +1427,6 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
       sbi_bug("M mode: state_migration: copy_from_va [%lx] can not be accessed\n", copy_from_va);
       return;    
     }
-    sbi_printf("[sm] [mmap][%u] copy_from_va [%lx]\n", i, copy_from_va);
 
     remain_page_size = PAGE_SIZE - (copy_from_va & (PAGE_SIZE-1));
     if (remain_page_size < PAGE_SIZE)
@@ -1489,7 +1462,6 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
     insert_pma(&(enclave->pma_list), pma);
     mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+PAGE_SIZE, PAGE_SIZE);
   }
-  sbi_printf("[sm] start copy heap\n");
   /* heap copy */
   for (i = 0 ; i < heap_state->heap_sz ; i++)
   {
@@ -1505,7 +1477,6 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
       sbi_bug("M mode: state_migration: copy_from_va [%lx] can not be accessed\n", copy_from_va);
       return;    
     }
-    sbi_printf("[sm] [heap][%u] copy_from_va [%lx]\n", i, copy_from_va);
 
     remain_page_size = PAGE_SIZE - (copy_from_va & (PAGE_SIZE-1));
     if (remain_page_size < PAGE_SIZE)
@@ -1603,23 +1574,7 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
   SET_ENCLAVE_METADATA(create_args.entry_point, enclave, &create_args, enclave_create_param_t *, paddr);
 
-  // sbi_printf("[sm] create eid: [%u]\n", enclave->eid);
-  // sbi_printf("[sm] parent eid: [%lu]\n", enclave->parent_eid);
-  // sbi_printf("[sm] enclave_mem.paddr [again]: [%lu]\n", create_args.paddr);
-  // sbi_printf("[sm] root_page_table: [%lu]\n", enclave->root_page_table);
-  // sbi_printf("[sm] host_ptbr: [%lu]\n", enclave->host_ptbr);
-  // sbi_printf("[sm] encl_ptbr: [%lu]\n", enclave->thread_context.encl_ptbr);
-  // sbi_printf("[sm] enclave.entrypoint: [%lu]\n", create_args.entry_point);
-  // sbi_printf("[sm] enclave.satp: [%lu]", enclave->thread_context.encl_ptbr);
-  if (enclave->type == NORMAL_ENCLAVE)
-  {
-    sbi_printf("[sm] it's NORMAL_ENCLAVE\n");
-  }
-  else if (enclave->type == PRIVIL_ENCLAVE)
-  {
-    sbi_printf("[sm] it's PRIVIL_ENCLAVE\n");
-  }
-  else 
+  if (enclave->type != NORMAL_ENCLAVE && enclave->type != PRIVIL_ENCLAVE)
   {
     sbi_bug("M mode: unexpected enclave type\n");
   }
@@ -1648,7 +1603,6 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
       sbi_bug("M mode: children [%u] has existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
       goto release_and_fail;
     }
-    sbi_printf("[sm] __alloc_children [START] \n");
     
     uintptr_t address;
     struct children_enclave_t *children_enclave = __alloc_children(parent->children_metadata_head, 
@@ -1730,10 +1684,8 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
   hash_enclave(enclave, (void*)(enclave->hash), 0);
   copy_word_to_host((unsigned int*)create_args.eid_ptr, enclave->eid);
-  sbi_printf("[sm] now we end create?\n");
   //Sync and flush the remote TLB entry.
   tlb_remote_sfence();
-  sbi_printf("[sm] now we end create!\n");
   return ret;
 
 release_and_fail:
@@ -1934,7 +1886,6 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
 
   acquire_enclave_metadata_lock();
 
-  sbi_printf("[sm] run.finding enclave [%d]\n", eid);
   enclave = __get_enclave(eid);
 
   release_enclave_metadata_lock();
@@ -1946,7 +1897,6 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
     goto run_enclave_out;
   }
 
-  sbi_printf("[sm] run target enclave eid (slab) [%d]\n", enclave->eid);
   /** We bind a host process (host_ptbr) during run_enclave, which will be checked during resume */
   enclave->host_ptbr = csr_read(CSR_SATP);
   
@@ -1971,7 +1921,6 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
     goto run_enclave_out;
   }
 
-  sbi_printf("[sm] enclave.entry_point: [%ld]\n", (uintptr_t)(enclave->entry_point));
   //set return address to enclave
   csr_write(CSR_MEPC, (uintptr_t)(enclave->entry_point));
 
@@ -2385,7 +2334,6 @@ uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
   // regs[10] will be set to retval when mcall_trap return, so we have to
   // set retval to be regs[10] here to succuessfully restore context
   retval = regs[10];
-  // sbi_printf("[sm] x[a0] [%lx] | x[ra] [%lx] | mepc [%lx]\n", regs[10], regs[1], csr_read(CSR_MEPC));
 resume_from_req_out:
   release_enclave_metadata_lock();
   return retval;
@@ -2431,7 +2379,6 @@ uintptr_t mmap_after_resume(struct enclave_t *enclave, uintptr_t paddr, uintptr_
   insert_pma(&(enclave->pma_list), pma);
   mmap((uintptr_t*)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+RISCV_PGSIZE, size-RISCV_PGSIZE);
   retval = vma->va_start;
-  sbi_printf("[sm] mmap_after_resume: [%lx] -> [%lx]\n", retval, paddr+RISCV_PGSIZE);
 
   return retval;
 }
@@ -2512,8 +2459,6 @@ run_enclave_out:
  */
 uintptr_t privil_create_after_resume(struct enclave_t *enclave, uintptr_t vaddr, uintptr_t alloc_eid)
 {
-  sbi_printf("[sm] address of PE param: [%lu]\n", vaddr);
-  sbi_printf("[sm] allocated eid: [%lu]\n", alloc_eid);
   
   uintptr_t retval = 0;
   void *create_args = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)vaddr);
@@ -2545,19 +2490,8 @@ uintptr_t privil_attest_after_resume(struct enclave_t *enclave, uintptr_t tgt_ei
   struct enclave_t* tgt_enclave = NULL;
   unsigned char attest_hash[HASH_SIZE];
 
-  sbi_printf("[sm] attestee eid: [%lu]\n", tgt_eid);
-  
-
   sbi_memcpy(&attest_args, (void *)(enclave->kbuffer), sizeof(ocall_attest_param_t));
-  sbi_printf("[sm] report attest eid: [%d]\n", attest_args.attest_eid);
-  sbi_printf("[sm] report vaddr: [%lu]\n", attest_args.report_ptr);
-  sbi_printf("[sm] report nonce: [%lu]\n", attest_args.nonce);
-
   tgt_enclave = __get_enclave(tgt_eid);
-  sbi_printf("[sm] target enclave parent eid: [%lu]\n", tgt_enclave->parent_eid);
-  sbi_printf("[sm] current enclave eid: [%u]\n", enclave->eid);
-  sbi_printf("[sm] target enclave's eid (slab): [%u]\n", tgt_enclave->eid);
-
   if (!tgt_enclave || (tgt_enclave->state != FRESH && tgt_enclave->state != STOPPED)
       || tgt_enclave->parent_eid != enclave->eid)
     attestable = 0;
@@ -2588,13 +2522,6 @@ uintptr_t privil_attest_after_resume(struct enclave_t *enclave, uintptr_t tgt_ei
   }
   sbi_memcpy(report_ptr, (void *)(&report), sizeof(struct report_t));
 
-  unsigned iter = 0, sum = 0;
-  for (iter = 0 ; iter < HASH_SIZE; iter++)
-  {
-    sbi_printf("%c", report.enclave.hash[iter]);
-    sum = sum + (int) (report.enclave.hash[iter]);
-  }
-  sbi_printf("\n[sm] privil_attest_after_resume attestation sum: [%u]\n", sum);
 out:
   return retval;
 }
@@ -2620,7 +2547,6 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   ocall_run_param_t run_args;
   struct enclave_t *tgt_enclave = NULL;
   sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
-  sbi_printf("[sm] run_args run_eid: [%d]\n", run_args.run_eid);
   
   tgt_enclave = __get_enclave(run_args.run_eid);
   /* todo. add run-enclave state check here. */
@@ -2630,7 +2556,6 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
     ret = -1UL;
     // goto out;
   }
-  sbi_printf("[sm] privil_run_after_resume: target enclave eid (slab): [%d]\n", tgt_enclave->eid);
 
   void *reason_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.reason_ptr));
   if (!reason_ptr)
@@ -2648,24 +2573,17 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   }
   sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
   
-  sbi_printf("[sm] return back to PE reason(UL): %lu\n", return_reason);
-  sbi_printf("[sm] return back to PE value(UL): %lu\n", return_value);
 
   /* handle Request from Normal Enclave, load its request and write it into PE's running param. */
-  sbi_printf("[sm] privil_run_after_resume: handling request from NE.\n");
   uintptr_t ne_request_arg = return_value;
   void *ne_request_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request_arg));
   void *pe_request_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_arg));
   ocall_request_t *ne_request = (ocall_request_t *)ne_request_pa;
   ocall_request_t *pe_request = (ocall_request_t *)pe_request_pa;
   
-  sbi_printf("[sm] ne request vaddr: [%lx]\n", ne_request_arg);
-  sbi_printf("[sm] pe request vaddr: [%lx]\n", run_args.request_arg);
   if (return_reason == NE_REQUEST_INSPECT)
   { 
     /* todo. if the parameter size is too large, cross page. */
-    sbi_printf("[sm] ne inspect request vaddr: [%lx]\n", (ne_request->inspect_request));
-    sbi_printf("[sm] pe inspect request vaddr: [%lx]\n", (pe_request->inspect_request));
 
     ocall_request_inspect_t ocall_inspect_req;
     void *ne_inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->inspect_request));
@@ -2673,14 +2591,9 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
     sbi_memcpy(pe_inspect_pa, ne_inspect_pa, sizeof(ocall_request_inspect_t));
 
     sbi_memcpy((void *)(&ocall_inspect_req), pe_inspect_pa, sizeof(ocall_request_inspect_t));
-    sbi_printf("[sm] pe inspect ptr [%lx] and size [%lu]\n", 
-                ocall_inspect_req.inspect_ptr, ocall_inspect_req.inspect_size);
   }
   else if (return_reason == NE_REQUEST_SHARE_PAGE)
   {
-    /* todo. */
-    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
-    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
 
     ocall_request_share_t ocall_share_req;
     void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
@@ -2688,14 +2601,9 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
     sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
     
     sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
-    sbi_printf("[sm] ne share ptr [%lx] and size [%lu]\n", 
-                ocall_share_req.share_content_ptr, ocall_share_req.share_size);
   }
   else if (return_reason == NE_REQUEST_ACQUIRE_PAGE)
   {
-    /* todo. */
-    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
-    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
 
     ocall_request_share_t ocall_share_req;
     void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
@@ -2703,8 +2611,6 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
     sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
     
     sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
-    sbi_printf("[sm] ne share eid [%lx] and share_id [%lu]\n", 
-                ocall_share_req.eid, ocall_share_req.share_id);
   }
   else if (return_reason == NE_REQUEST_DEBUG_PRINT)
   {
@@ -2772,7 +2678,6 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   ocall_run_param_t run_args;
   struct enclave_t *tgt_enclave = NULL;
   sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
-  sbi_printf("[sm] run_args run_eid: [%d]\n", run_args.run_eid);
 
   tgt_enclave = __get_enclave(run_args.run_eid);
   /* todo. add resume-enclave state check here. */
@@ -2781,7 +2686,6 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
     sbi_bug("M mode: privil_run_after_resume: enclave%d is not valid\n", run_args.run_eid);
     ret = -1UL;
   }
-  sbi_printf("[sm] privil_resume_after_resume: target enclave eid (slab): [%d]\n", tgt_enclave->eid);
 
   void *reason_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.reason_ptr));
   if (!reason_ptr)
@@ -2799,62 +2703,39 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   }
   sbi_memcpy(retval_ptr, (void *)(&return_value_int), sizeof(int));
 
-  sbi_printf("[sm] return back to PE reason(UL): %lu\n", return_reason);
-  sbi_printf("[sm] return back to PE value(UL): %lu\n", return_value);
 
   /* handle Request from Normal Enclave, load its request and write it into PE's running param. */
-  sbi_printf("[sm] privil_run_after_resume: handling request from NE.\n");
   uintptr_t ne_request_arg = return_value;
   void *ne_request_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request_arg));
   void *pe_request_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.request_arg));
   ocall_request_t *ne_request = (ocall_request_t *)ne_request_pa;
   ocall_request_t *pe_request = (ocall_request_t *)pe_request_pa;
   
-  sbi_printf("[sm] ne request vaddr: [%lx]\n", ne_request_arg);
-  sbi_printf("[sm] pe request vaddr: [%lx]\n", run_args.request_arg);
   if (return_reason == NE_REQUEST_INSPECT)
   { 
-    /* todo. if the parameter size is too large, cross page. */
-    sbi_printf("[sm] ne inspect request vaddr: [%lx]\n", (ne_request->inspect_request));
-    sbi_printf("[sm] pe inspect request vaddr: [%lx]\n", (pe_request->inspect_request));
-
     ocall_request_inspect_t ocall_inspect_req;
     void *ne_inspect_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->inspect_request));
     void *pe_inspect_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->inspect_request));
     sbi_memcpy(pe_inspect_pa, ne_inspect_pa, sizeof(ocall_request_inspect_t));
     sbi_memcpy((void *)(&ocall_inspect_req), pe_inspect_pa, sizeof(ocall_request_inspect_t));
-    sbi_printf("[sm] pe inspect ptr [%lx] and size [%lu]\n", 
-                ocall_inspect_req.inspect_ptr, ocall_inspect_req.inspect_size);
   }
   else if (return_reason == NE_REQUEST_SHARE_PAGE)
   {
-    /* todo. */
-    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
-    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
-
     ocall_request_share_t ocall_share_req;
     void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
     void *pe_share_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->share_page_request));
     sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
     
     sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
-    sbi_printf("[sm] ne share ptr [%lx] and size [%lu]\n", 
-                ocall_share_req.share_content_ptr, ocall_share_req.share_size);
   }
   else if (return_reason == NE_REQUEST_ACQUIRE_PAGE)
   {
-    /* todo. */
-    sbi_printf("[sm] ne share request vaddr: [%lx]\n", (ne_request->share_page_request));
-    sbi_printf("[sm] pe share request vaddr: [%lx]\n", (pe_request->share_page_request));
-
     ocall_request_share_t ocall_share_req;
     void *ne_share_pa = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(ne_request->share_page_request));
     void *pe_share_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->share_page_request));
     sbi_memcpy(pe_share_pa, ne_share_pa, sizeof(ocall_request_share_t));
     
     sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
-    sbi_printf("[sm] ne share eid [%lx] and share_id [%lu]\n", 
-                ocall_share_req.eid, ocall_share_req.share_id);
   }
   else if (return_reason == NE_REQUEST_DEBUG_PRINT)
   {
@@ -2927,7 +2808,6 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   uintptr_t ret = 0;
   unsigned remain_page_size;
   unsigned param_size = inspect_size;
-  // sbi_printf("[sm] [privil_inspect_after_resume] param copy size: [%lu]\n", inspect_size);
   /* write data buffer back to PE. */
   
   void *inspect_result_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)inspect_result);
@@ -2949,7 +2829,6 @@ uintptr_t privil_inspect_after_resume(struct enclave_t *enclave, uintptr_t inspe
   {
     sbi_memcpy(inspect_result_pa, (void *)(enclave->kbuffer), param_size);  
   }
-  // sbi_printf("[sm] out of [privil_inspect_after_resume]\n");
   /* check on enclave */
   return ret;
 }
@@ -3000,7 +2879,6 @@ uintptr_t resume_from_ocall(uintptr_t* regs, unsigned int eid)
       retval = regs[13];
       break;
     case OCALL_RETURN_RELAY_PAGE:
-      sbi_printf("[sm] trying to resume from relay page\n");
       retval = return_relay_page_after_resume(enclave, regs[13], regs[14]);
       if(retval == -1UL)
         goto out;
@@ -3065,7 +2943,6 @@ uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid)
   unsigned long satp = 0;
   acquire_enclave_metadata_lock();
 
-  sbi_printf("[sm] target enclave eid (slab): [%u]\n", eid);
   enclave = __get_enclave(eid);
 
   if(check_in_enclave_world() == 0)
@@ -3087,12 +2964,6 @@ uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid)
     release_enclave_metadata_lock();
     goto destroy_enclave_out;
   }
-  sbi_printf("[sm] destroy_enclave: target enclave eid (slab): [%d]\n", enclave->eid);
-  /* add our children metadata operations here. */
-  // acquire_enclave_metadata_lock();
-
-  sbi_printf("[sm] enclave eid (slab): [%u]\n", enclave->eid);
-  sbi_printf("[sm] enclave parent eid (slab): [%lu]\n", enclave->parent_eid);
 
   if (enclave->parent_eid != NULL_EID)
   {
@@ -3110,17 +2981,11 @@ uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid)
       goto release_and_out;
     }
 
-    sbi_printf("[sm] parent eid (slab): [%u]\n", parent->eid);
-    sbi_printf("[sm] parent eid metadata head: [%p]\n", parent->children_metadata_head);
     if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
     {
       retval = ENCLAVE_ERROR;
       sbi_bug("M mode: children [%u] not existed in parent [%lu]\n", enclave->eid, enclave->parent_eid);
       goto release_and_out;
-    }
-    else 
-    {
-      sbi_printf("[sm] children eid [%u]'s parent: [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
     }
     
     if (__free_children(enclave->eid, parent->children_metadata_head))
@@ -3130,14 +2995,12 @@ uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid)
       goto release_and_out;
     }
 
-    sbi_printf("[sm] CHILDREN_DELETE BASIC TEST [START]\n");
     if (__get_children(enclave->eid, parent->children_metadata_head) != NULL)
     {
       retval = ENCLAVE_ERROR;
       sbi_bug("M mode: children [%u] has existed in parent [%lu] [check again]\n", enclave->eid, enclave->parent_eid);
       goto release_and_out;
     }
-    sbi_printf("[sm] CHILDREN_DELETE PASSED BASIC TEST!\n");
   }
 
 
@@ -3200,7 +3063,6 @@ uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid)
     }
   }
 
-  sbi_printf("[sm] end of destroy!\n");
 release_and_out:
   release_enclave_metadata_lock();
 destroy_enclave_out:
@@ -3310,7 +3172,6 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
     goto inspect_enclave_out;
   }
 
-  sbi_printf("[sm] dump_context: [%lu]\n", dump_context);
 
   if (dump_context == INSPECT_REGS)
   {
@@ -3356,7 +3217,6 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
         enclave_mem_dump.mmap_sz = i;
         break;
       }
-      sbi_printf("[sm] [inspect_enclave] mmap_vma[%d]: start [%lx], end [%lx]\n", i, mmap_vma->va_start, mmap_vma->va_end);
       enclave_mem_dump.mmap_vma[i].va_start = mmap_vma->va_start;
       enclave_mem_dump.mmap_vma[i].va_end = mmap_vma->va_end;
       mmap_vma = mmap_vma->vm_next;
@@ -3454,11 +3314,8 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
     goto response_enclave_out;
   }
   ocall_response_t *ocall_response_local = (ocall_response_t *)(response_arg_pa);
-  sbi_printf("[sm] [response_enclave]: tgt_eid (NE) [%lu], src_eid (PE) [%lu], response_arg[%lx], request(detailed) [%lu]\n",
-              tgt_eid, src_eid, response_arg, ocall_response_local->request);
   if (ocall_response_local->request == NE_REQUEST_ACQUIRE_PAGE)
   {
-    sbi_printf("[sm] response to [NE_REQUEST_ACQUIRE_PAGE]\n");
     void *share_response_pa = va_to_pa((uintptr_t *)(src_enclave->root_page_table), 
                                        (void *)(ocall_response_local->share_page_response));
     if (!share_response_pa)
@@ -3467,12 +3324,7 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
       retval = -1UL;
       goto response_enclave_out;
     }
-
     ocall_response_share_t *share_response_local = (ocall_response_share_t *)(share_response_pa);
-    sbi_printf("[sm] share src (VA)[%lx], share dest [%lx], share_size [%lx]\n", 
-                share_response_local->src_ptr,
-                share_response_local->dest_ptr,
-                share_response_local->share_size);
     
     share_size = share_response_local->share_size;
     /* first we copy to tgt_enclave kbuffer */
@@ -3724,8 +3576,6 @@ uintptr_t exit_enclave(uintptr_t* regs, unsigned long enclave_retval)
       sbi_bug("M mode: illegal parent [%lu]\n", enclave->parent_eid);
       goto exit_enclave_out;
     }
-    sbi_printf("[sm] parent eid (slab): [%u]\n", parent->eid);
-    sbi_printf("[sm] parent eid metadata head: [%p]\n", parent->children_metadata_head);
     if (__get_children(enclave->eid, parent->children_metadata_head) == NULL)
     {
       ret = ENCLAVE_ERROR;
@@ -4636,7 +4486,6 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   
   /* slab-level eid */
   eid = get_curr_enclave_id();
-  sbi_printf("[sm] get_curr_enclave_id: [%u]\n", eid);
   enclave = __get_enclave(eid);
   if( !enclave || 
       check_enclave_authentication(enclave)!=0 || 
@@ -4658,8 +4507,6 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   }
   /* pass the slab eid */
   ((ocall_create_param_t *)create_args)->eid = eid;
-  sbi_printf("[sm] [privil_create_enclave] create size: [%lu] \n", sizeof(ocall_create_param_t));
-
 
   /* Avoid same-VA-page but diff-PA-page situation. */
   remain_page_size = PAGE_SIZE - (enclave_create_args & (PAGE_SIZE-1));
@@ -4678,27 +4525,11 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   uintptr_t state_va = ((ocall_create_param_t *)create_args)->migrate_arg;
   if (state_va)
   {
-    sbi_printf("[sm] state_va: [%lx]\n", state_va);
     void *state_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)state_va);
     void *state_buf = (void *)(enclave->kbuffer + sizeof(ocall_create_param_t));
 
     param_size = sizeof(snapshot_state_t);
     remain_page_size = PAGE_SIZE - (state_va & (PAGE_SIZE-1));
-    snapshot_state_t *state = (snapshot_state_t *)state_pa;
-    snapshot_mmap_state_t *mmap = &(state->mmap); 
-    snapshot_heap_state_t *heap = &(state->heap);
-    sbi_printf("[sm] sizeof(snapshot_state_t): [%lx]\n", sizeof(snapshot_state_t));
-    unsigned i = 0;
-    for (i = 0 ; i < mmap->mmap_sz ; i++)
-    {
-      sbi_printf("[sm] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
-                  i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
-    }
-    for (i = 0 ; i < heap->heap_sz ; i++)
-    {
-      sbi_printf("[sm] heap_area[%d]: vaddr [%lx], start [%lx]\n",
-                  i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
-    }
     if (param_size > remain_page_size)
     {
       copy_to_host(state_buf, state_pa, remain_page_size);
@@ -4717,10 +4548,6 @@ uintptr_t privil_create_enclave(uintptr_t* regs, uintptr_t enclave_create_args)
   copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_CREATE_ENCLAVE);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_create_args);
-
-  sbi_printf("[sm] copy (uintptr_t)enclave_create_args to ocall_arg1:[%lu]\n", (uintptr_t)enclave_create_args);
-  sbi_printf("[sm] ocall_arg1 address:[%p]\n", (uintptr_t*)enclave->ocall_arg1);
-  sbi_printf("[sm] ocall_arg1 content:[%lu]\n", *(enclave->ocall_arg1));
 
   
   /* return to host with Ocall identity */
@@ -4759,7 +4586,6 @@ uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args)
   acquire_enclave_metadata_lock();
   /* slab-level eid */
   eid = get_curr_enclave_id();
-  sbi_printf("[sm] get_curr_enclave_id: [%u]\n", eid);
   enclave = __get_enclave(eid);
   if( !enclave || 
       check_enclave_authentication(enclave)!=0 || 
@@ -5079,7 +4905,6 @@ uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t enclave_destroy_args
   swap_from_enclave_to_host(regs, enclave);
   enclave->state = OCALLING;
   ret = ENCLAVE_OCALL;
-  sbi_printf("[sm] privil_destroy_enclave: target enclave eid (slab): [%d]\n", enclave->eid);
 out:
   release_enclave_metadata_lock();
   return ret;
@@ -5177,7 +5002,6 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
     ret = -1UL;
     goto pause_enclave_out;
   }
-  sbi_printf("[sm] privil_pause_enclave: enclave_pause_args: [%lx]\n", enclave_pause_args);
   /** 
    * Copy to ocall_func_id is useless now, since we don't enter penglai_enclave_ocall.
    * Instead, we jump back to PE's handle_ocall_run_enclave.

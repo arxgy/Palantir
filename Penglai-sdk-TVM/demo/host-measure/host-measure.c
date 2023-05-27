@@ -94,7 +94,6 @@ int main(int argc, char** argv)
   int thread_num = 1;
 
   unsigned long cycles1,cycles2,cycles3,cycles4;
-  int self_timing = 1;
   if(argc == 3)
   {
     thread_num = atoi(argv[2]);
@@ -123,31 +122,14 @@ int main(int argc, char** argv)
   {
     args[i].in = (void*)enclaveFile;
     args[i].i = i + 1;
-    if( self_timing ){
-    asm volatile ("rdcycle %0" : "=r" (cycles1));
-    }
     pthread_create(&threads[i], NULL, create_enclave, (void*)&(args[i]));
-
-    if( self_timing ){
-    asm volatile ("rdcycle %0" : "=r" (cycles2));
-    }
   }
   
 
-  if( self_timing ){
-    asm volatile ("rdcycle %0" : "=r" (cycles3));
-  }
   for(int i =0; i< thread_num; ++i)
   {
     pthread_join(threads[i], (void**)0);
   }
-  if( self_timing ){
-    asm volatile ("rdcycle %0" : "=r" (cycles4));
-    printf("[penglai-bench] create and init enclave: %lu cycles\r\n", cycles2-cycles1);
-    printf("[penglai-bench] runtime: %lu cycles\r\n", cycles4-cycles3);
-  }
-
-
   printf("host: after exit the thread\n");
 out:
   elf_args_destroy(enclaveFile);
