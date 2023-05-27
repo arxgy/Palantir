@@ -20,6 +20,8 @@
 #define MAX_HARTS 8
 #define ENCLAVE_MODE 1
 #define NORMAL_MODE 0
+/* 64*1024 \div PAGESZ => 16 */
+#define DEFAULT_STACK_PAGES 16
 
 #define CHILDREN_METADATA_REGION_SIZE  ((sizeof(struct children_enclave_t)) * ENCLAVES_PER_METADATA_REGION)
 
@@ -28,6 +30,7 @@
 
 //FIXME: entry point of self hash code, may need to change for some unknown reasons.
 #define ENCLAVE_SELF_HASH_ENTRY  (0x8000)
+#define STACK_POINT 0x0000003800000000UL
 
 #define SET_ENCLAVE_METADATA(point, enclave, create_args, struct_type, base) do { \
   enclave->entry_point = point; \
@@ -269,8 +272,9 @@ uintptr_t run_enclave(uintptr_t* regs, unsigned int eid, enclave_run_param_t enc
 uintptr_t stop_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t wake_enclave(uintptr_t* regs, unsigned int eid);
 uintptr_t destroy_enclave(uintptr_t* regs, unsigned int eid);
-uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
+uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size);
 uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg);
+uintptr_t memory_layout_dump(uintptr_t tgt_eid, uintptr_t src_eid);
 
 // Shadow encalve related operations
 uintptr_t create_shadow_enclave(enclave_create_param_t create_args);
@@ -329,7 +333,7 @@ uintptr_t privil_attest_enclave(uintptr_t* regs, uintptr_t enclave_attest_args);
 uintptr_t privil_run_enclave(uintptr_t* regs, uintptr_t enclave_run_args);
 uintptr_t privil_stop_enclave(uintptr_t* regs, uintptr_t eid);
 uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args);
-uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t eid);
+uintptr_t privil_destroy_enclave(uintptr_t* regs, uintptr_t enclave_destroy_args);
 uintptr_t privil_inspect_enclave(uintptr_t* regs, uintptr_t enclave_inspect_args);
 uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args);
 
@@ -423,7 +427,7 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
-
+  unsigned long migrate_arg;
 } ocall_create_param_t;
 
 typedef struct ocall_attest_param
@@ -447,9 +451,33 @@ typedef struct ocall_run_param
   unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
 
+typedef struct vm_area_dump
+{
+  unsigned long va_start;
+  unsigned long va_end;
+} vm_area_dump_t;
+
+typedef struct enclave_mem_dump
+{
+  vm_area_dump_t text_vma;
+  vm_area_dump_t stack_vma;
+  unsigned long heap_sz;
+  unsigned long mmap_sz;
+  vm_area_dump_t heap_vma[DEFAULT_HEAP_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_MMAP_VMA_MAX];
+} enclave_mem_dump_t;
+
+typedef struct ocall_destroy_param
+{
+  int destroy_eid;
+  unsigned long op;
+  unsigned long dump_arg;  // VA in PE;
+} ocall_destroy_param_t;
+
 typedef struct ocall_inspect_param
 {
   int inspect_eid;
+  int dump_context;
   unsigned long inspect_address; // VA in NE
   unsigned long inspect_size;
   int reason;  // let sdk read (RDONLY), sync with *reason_ptr.
@@ -509,5 +537,42 @@ typedef struct ocall_response_share
   unsigned long dest_ptr; // VA in NE
   unsigned long share_size;
 } ocall_response_share_t;
+
+typedef struct snapshot_mem_area
+{
+  unsigned long vaddr;  // VA in PE
+  unsigned long start;  // VA in NE
+  unsigned long paddr;  // alloc by kernel
+} snapshot_mem_area_t;
+
+typedef struct snapshot_mmap_state
+{
+  unsigned long mmap_sz;
+  snapshot_mem_area_t mmap_areas[DEFAULT_MMAP_VMA_MAX];
+} snapshot_mmap_state_t;
+
+typedef struct snapshot_heap_state
+{
+  unsigned long heap_sz;
+  snapshot_mem_area_t heap_areas[DEFAULT_HEAP_VMA_MAX];
+} snapshot_heap_state_t;
+
+/**
+ *  We use this parameter to migrate enclave. 
+ * \param regs is runtime register state of NE
+ * \param stack is VA in PE, contains stack pages in NE 
+ *        ([0] means highest page)
+ * \param mmap stores all mmap vma and its contents (VA in PE)
+ * \param heap stores all heap vma and its contents (VA in PE)
+*/
+typedef struct snapshot_state
+{
+  ocall_request_dump_t regs;
+  unsigned long stack_sz;
+  unsigned long stack[DEFAULT_STACK_PAGES];  
+  unsigned long stack_pa[DEFAULT_STACK_PAGES];
+  snapshot_mmap_state_t mmap;
+  snapshot_heap_state_t heap;
+} snapshot_state_t;
 
 #endif /* _ENCLAVE_H */

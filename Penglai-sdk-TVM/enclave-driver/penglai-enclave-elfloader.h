@@ -21,7 +21,8 @@ int privil_enclave_eapp_loading(
 		vaddr_t * elf_entry_point, 
 		vaddr_t stack_ptr, 
 		int stack_size,
-        enclave_type_t type);
+        enclave_type_t type,
+		unsigned long migrate_stack_pages);
 int penglai_enclave_eapp_loading(
 		enclave_mem_t* enclave_mem,  
 		void* __user elf_ptr, 

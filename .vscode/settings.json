@@ -31,6 +31,13 @@
         "hash_set": "c",
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "random": "c",
+        "thread.h": "c",
+        "bitset": "c",
+        "initializer_list": "c",
+        "utility": "c",
+        "enclave_mm.h": "c",
+        "enclave_vm.h": "c"
     }
 }

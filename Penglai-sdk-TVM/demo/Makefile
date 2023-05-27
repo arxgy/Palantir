@@ -16,6 +16,7 @@ all:
 	make -C pe-hello
 	make -C case-1-introspection
 	make -C case-2-sharing
+	make -C case-3-migration
 
 	#CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  mphost_normal
 
@@ -37,4 +38,5 @@ clean:
 	make -C pe-hello clean
 	make -C case-1-introspection clean
 	make -C case-2-sharing clean
+	make -C case-3-migration clean
 

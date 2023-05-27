@@ -74,6 +74,8 @@ struct penglai_enclave_user_param
   unsigned long schrodinger_size;
   unsigned long retval;
   char elf_file_name[ELF_FILE_LEN];
+  unsigned long migrate_arg;
+  unsigned long migrate_stack_pages;
 };
 
 struct penglai_enclave_sbi_param
@@ -105,6 +107,7 @@ struct penglai_enclave_sbi_param
   unsigned long *ecall_arg2;
   unsigned long *ecall_arg3;
   unsigned long *retval;
+  unsigned long migrate_arg;
 };
 
 typedef struct penglai_enclave_run_sbi_param

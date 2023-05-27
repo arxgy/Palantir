@@ -37,10 +37,10 @@ int eapp_resume_enclave(unsigned long ocall_param_vaddr)
     return retval;
 }
 
-int eapp_destroy_enclave(unsigned long eid)
+int eapp_destroy_enclave(unsigned long ocall_param_vaddr)
 {
     int retval = 0;
-    retval = EAPP_DESTROY_ENCLAVE(OCALL_DESTROY_ENCLAVE, eid);
+    retval = EAPP_DESTROY_ENCLAVE(OCALL_DESTROY_ENCLAVE, ocall_param_vaddr);
     return retval;
 }
 

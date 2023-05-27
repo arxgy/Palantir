@@ -18,6 +18,14 @@
 #define ELF_FILE_LEN       256
 /* let 0xffffffffffffffffUL be NULL slab eid */
 #define NULL_EID           -1
+
+#define DEFAULT_HEAP_VMA_MAX    72
+#define DEFAULT_MMAP_VMA_MAX    72
+
+#define INSPECT_MEM     0
+#define INSPECT_REGS    1
+#define INSPECT_VMA     2
+
 struct mm_alloc_arg_t
 {
   unsigned long req_size;
@@ -99,6 +107,7 @@ typedef struct enclave_create_param
   unsigned long *ecall_arg2;
   unsigned long *ecall_arg3;
   unsigned long *retval;
+  unsigned long migrate_arg;
 } enclave_create_param_t;
 
 typedef struct enclave_run_param

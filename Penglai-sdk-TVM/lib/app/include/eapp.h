@@ -64,7 +64,7 @@ int EAPP_ATTEST_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_v
 int EAPP_RUN_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_STOP_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_RESUME_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
-int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long eid);
+int EAPP_DESTROY_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_INSPECT_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 int EAPP_PAUSE_ENCLAVE(unsigned long ocall_func_id, unsigned long ocall_param_vaddr);
 
@@ -91,7 +91,7 @@ int eapp_attest_enclave(unsigned long ocall_param_vaddr);
 int eapp_run_enclave(unsigned long ocall_param_vaddr);
 int eapp_stop_enclave(unsigned long ocall_param_vaddr);
 int eapp_resume_enclave(unsigned long ocall_param_vaddr);
-int eapp_destroy_enclave(unsigned long eid);
+int eapp_destroy_enclave(unsigned long ocall_param_vaddr);
 int eapp_inspect_enclave(unsigned long ocall_param_vaddr);
 int eapp_pause_enclave(unsigned long ocall_param_vaddr);
 

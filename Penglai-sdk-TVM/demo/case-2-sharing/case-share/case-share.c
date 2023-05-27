@@ -68,6 +68,7 @@ int hello(unsigned long * args)
     create_params[i].elf_file_ptr = (unsigned long)(&(create_params[i]));
     create_params[i].encl_type = NORMAL_ENCLAVE;
     create_params[i].stack_size = DEFAULT_STACK_SIZE;
+    create_params[i].migrate_arg = 0;
     /* disable shm currently */
     create_params[i].shmid = 0;
     create_params[i].shm_offset = 0;
@@ -209,6 +210,7 @@ int hello(unsigned long * args)
         }
         if (!found)
           eapp_print("[pe] [ERROR] cannot find target peer Normal Enclave.\n");
+        ocall_inspect_param_local.dump_context = 0;
         ocall_inspect_param_local.inspect_eid = share_params[prev].eid;
         ocall_inspect_param_local.inspect_address = share_records[share_idx].vaddr;
         ocall_inspect_param_local.inspect_size = share_records[share_idx].size;

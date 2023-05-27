@@ -6,6 +6,15 @@
 #include "penglai-enclave-persistency.h"
 #include "penglai-enclave-ocall.h"
 #include "penglai-enclave.h"
+#include <linux/delay.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <linux/syscalls.h>
+#include <linux/fcntl.h>
+#include <linux/err.h>
+#include <linux/stat.h>
+#include <linux/types.h>
+#include <asm/uaccess.h>
 
 int handle_ocall_mmap(enclave_instance_t *enclave_instance, enclave_t *enclave, int resume_id, int isShadow)
 {
@@ -22,7 +31,6 @@ int handle_ocall_mmap(enclave_instance_t *enclave_instance, enclave_t *enclave, 
     penglai_eprintf("penglai_enclave_ocall: OCALL_MMAP  is failed\r\n");
     return ret;
   }
-  // printk("enclave_driver: now we resume to enclave\n");
   ret = SBI_PENGLAI_5(SBI_SM_RESUME_ENCLAVE, resume_id, RESUME_FROM_OCALL, OCALL_MMAP, __pa(vaddr), (1<<order)*RISCV_PGSIZE);
   return ret;
 }
@@ -172,8 +180,60 @@ int handle_ocall_create_enclave(enclave_instance_t *enclave_instance, enclave_t 
   penglai_printf("[sdk driver] privileged caller eid: [%d]\n", enclave_param.eid);
   penglai_printf("[sdk driver] received elf file name: [%.*s]\n", ELF_FILE_LEN, enclave_param.elf_file_name);
   enclave_param.type = ocall_create_param_local->encl_type;
+  enclave_param.migrate_arg = ocall_create_param_local->migrate_arg;
+  enclave_param.migrate_stack_pages = 0;
 
   // step 2. create.
+  unsigned long vaddr;
+  if (enclave_param.migrate_arg)
+  {
+    snapshot_state_t *state = (snapshot_state_t *)(kbuf + sizeof(ocall_create_param_t));
+    penglai_printf("[sdk driver] sizeof(snapshot_state_t): [%lx]\n", sizeof(snapshot_state_t));
+    enclave_param.migrate_stack_pages = state->stack_sz;
+    snapshot_mmap_state_t *mmap = &(state->mmap); 
+    snapshot_heap_state_t *heap = &(state->heap);
+    unsigned i = 0;
+    for (i = 0 ; i < state->stack_sz ; i++)
+    {
+      vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
+      if (!vaddr)
+      {
+        ret = -1;
+        penglai_eprintf("handle_ocall_create_enclave[migration-stack]: penglai_get_free_pages is failed\r\n");
+        return ret;
+      }
+      state->stack_pa[i] = __pa(vaddr);
+    }
+    for (i = 0 ; i < mmap->mmap_sz ; i++)
+    {
+      penglai_printf("[sdk driver] mmap_area[%d]: vaddr [%lx], start [%lx]\n",
+                  i, mmap->mmap_areas[i].vaddr, mmap->mmap_areas[i].start);
+      /* The first for vma & pma; The second for content copy */
+      vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
+      if (!vaddr)
+      {
+        ret = -1;
+        penglai_eprintf("handle_ocall_create_enclave[migration-mmap]: penglai_get_free_pages is failed\r\n");
+        return ret;
+      }
+      mmap->mmap_areas[i].paddr = __pa(vaddr);
+    }
+    for (i = 0 ; i < heap->heap_sz ; i++)
+    {
+      penglai_printf("[sdk driver] heap_area[%d]: vaddr [%lx], start [%lx]\n",
+                  i, heap->heap_areas[i].vaddr, heap->heap_areas[i].start);
+      vaddr = penglai_get_free_pages(GFP_KERNEL, 1);
+      if (!vaddr)
+      {
+        ret = -1;
+        penglai_eprintf("handle_ocall_create_enclave[migration-heap]: penglai_get_free_pages is failed\r\n");
+        return ret;
+      }
+      heap->heap_areas[i].paddr = __pa(vaddr);
+    }
+  }
+
+  /* alloc page for each entry */
   ret = penglai_enclave_ocall_create((unsigned long)(&enclave_param));
   if (ret < 0) 
   {
@@ -383,34 +443,49 @@ int handle_ocall_destroy_enclave(enclave_instance_t *enclave_instance, enclave_t
 {
   /* todo. not finished yet. */
   int ret = 0;
-  unsigned long tgt_eid = 0;
+  int target_eid = 0;
+  void *kbuf;
   enclave_t *destroy_enclave = NULL;
   if (isShadow)
   {
-    tgt_eid = enclave_instance->ocall_arg0;
+    kbuf = (void *) __va(enclave_instance->ocall_arg0);
   }
   else 
   {
-    tgt_eid = enclave->ocall_arg0;
+    kbuf = (void *) __va(enclave->ocall_arg0);
   }
   /**
    * step 1. prepare
+   *         - copy parameters & get eid
    *         - do sanity checks
   */
-  destroy_enclave = get_enclave_by_id(tgt_eid);
+  ocall_destroy_param_t *ocall_destroy_param_local = (ocall_destroy_param_t *)(kbuf);
+  destroy_enclave = get_enclave_by_id(ocall_destroy_param_local->destroy_eid);
   if (destroy_enclave == NULL)
   {
-    penglai_eprintf("[sdk driver] invalid enclave target: [%d] (slab)\n", tgt_eid);
+    penglai_eprintf("[sdk driver] invalid enclave target: [%d] (slab)\n", ocall_destroy_param_local->destroy_eid);
   }
-  penglai_printf("[sdk driver] target destroy enclave eid [idr] is: [%lu]\n", tgt_eid);
+  penglai_printf("[sdk driver] target destroy enclave eid [idr] is: [%lu]\n", ocall_destroy_param_local->destroy_eid);
   penglai_printf("[sdk driver] target destroy enclave eid [slab] is: [%lu]\n", destroy_enclave->eid);
 
   struct penglai_enclave_user_param enclave_param;
-  enclave_param.eid = tgt_eid;
+  enclave_param.eid = ocall_destroy_param_local->destroy_eid;
   enclave_param.isShadow = 0;
   /**
    * step 2. destroy NE 
   */
+  // unsigned long op = ocall_destroy_param_local->op;
+  // unsigned long dump_arg = ocall_destroy_param_local->dump_arg;
+  // target_eid = destroy_enclave->eid;
+    
+  // /* dump all vmas from SM, might need a more dynamic way. */
+  // /* the dumped vma layout will be stored in PE's kbuffer */
+  // ret = SBI_PENGLAI_2(SBI_SM_MEMORY_DUMP, target_eid, resume_id);
+  // if (ret < 0)
+  // {
+  //   penglai_eprintf("[sdk driver] SBI_SM_MEMORY_DUMPs failed with retval [%d]\n", ret);
+  // }
+
   ret = penglai_enclave_ocall_destroy((unsigned long)(&enclave_param));
   if (ret < 0)
   {
@@ -447,10 +522,10 @@ int handle_ocall_inspect_enclave(enclave_instance_t *enclave_instance, enclave_t
   ocall_inspect_param_t ocall_inspect_param_local;
   memcpy((void *)(&ocall_inspect_param_local), ocall_inspect_param_kbuf, sizeof(ocall_inspect_param_t));
   inspect_enclave = get_enclave_by_id(ocall_inspect_param_local.inspect_eid);
-  penglai_printf("[sdk driver] inspect eid (idr-layer): [%lu]\n", ocall_inspect_param_local.inspect_eid);
-  penglai_printf("[sdk driver] inspect address: [%lx]\n", ocall_inspect_param_local.inspect_address);
-  penglai_printf("[sdk driver] inspect size: [%lu]\n", ocall_inspect_param_local.inspect_size);
-  penglai_printf("[sdk driver] inspect result: [%lu]\n", ocall_inspect_param_local.inspect_result);
+  // penglai_printf("[sdk driver] inspect eid (idr-layer): [%lu]\n", ocall_inspect_param_local.inspect_eid);
+  // penglai_printf("[sdk driver] inspect address: [%lx]\n", ocall_inspect_param_local.inspect_address);
+  // penglai_printf("[sdk driver] inspect size: [%lu]\n", ocall_inspect_param_local.inspect_size);
+  // penglai_printf("[sdk driver] inspect result: [%lu]\n", ocall_inspect_param_local.inspect_result);
   if (!inspect_enclave)
   {
     penglai_eprintf("[sdk driver] target enclave [%d] cannot be accessed.\n", ocall_inspect_param_local.inspect_eid);
@@ -460,7 +535,16 @@ int handle_ocall_inspect_enclave(enclave_instance_t *enclave_instance, enclave_t
    * step 2. inspect NE
    * inspect result will be written into kbuffer
   */
-  ret = SBI_PENGLAI_4(SBI_SM_INSPECT_ENCLAVE, target_eid, resume_id, 
+  if (ocall_inspect_param_local.dump_context == INSPECT_REGS)
+  {
+    ocall_inspect_param_local.inspect_size = PENGLAI_REGS_STATE_SIZE_MAGIC;
+  }
+  else if (ocall_inspect_param_local.dump_context == INSPECT_VMA)
+  {
+    ocall_inspect_param_local.inspect_size = sizeof(enclave_mem_dump_t);
+  }
+  ret = SBI_PENGLAI_5(SBI_SM_INSPECT_ENCLAVE, target_eid, resume_id, 
+                      ocall_inspect_param_local.dump_context,
                       ocall_inspect_param_local.inspect_address, 
                       ocall_inspect_param_local.inspect_size);
   if (ret < 0)

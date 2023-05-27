@@ -1,0 +1,4 @@
+case-migrator
+*.dump
+*.o
+*.S

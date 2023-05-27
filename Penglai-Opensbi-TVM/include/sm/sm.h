@@ -59,6 +59,8 @@
 #define NE_REQUEST_SHARE_PAGE             11
 #define NE_REQUEST_ACQUIRE_PAGE           12
 
+#define NE_REQUEST_DEBUG_PRINT            20
+
 //Function id of resume reason
 #define RESUME_FROM_TIMER_IRQ    0
 #define RESUME_FROM_STOP         1
@@ -170,7 +172,7 @@ uintptr_t sm_stop_enclave(uintptr_t *regs, uintptr_t enclave_id);
 uintptr_t sm_resume_enclave(uintptr_t *regs, uintptr_t enclave_id, uintptr_t resume_func_id);
 uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id);
 // PE-related operations
-uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size);
+uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size);
 uintptr_t sm_response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg);
 
 // Server enclave-related operations

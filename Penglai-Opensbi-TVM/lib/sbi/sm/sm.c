@@ -971,13 +971,14 @@ uintptr_t sm_destroy_enclave(uintptr_t *regs, uintptr_t enclave_id)
  * 
  * \param tgt_eid The inspectee eid. (slab-layer)
  * \param src_eid The inspector eid. (slab-layer)
+ * \param dump_context 0 means do inspection on memory region, otherwise dump register state.
  * \param inspect_addr The start VA address of inspectee region
  * \param inspect_size The size of inspectee region (<= PAGE SIZE, normally 4kB)
  */
-uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t inspect_addr, uintptr_t inspect_size)
+uintptr_t sm_inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_context, uintptr_t inspect_addr, uintptr_t inspect_size)
 {
   uintptr_t retval = 0;
-  retval = inspect_enclave(tgt_eid, src_eid, inspect_addr, inspect_size); 
+  retval = inspect_enclave(tgt_eid, src_eid, dump_context, inspect_addr, inspect_size); 
   return retval;
 }
 
@@ -1158,35 +1159,28 @@ uintptr_t sm_enclave_ocall(uintptr_t* regs, uintptr_t ocall_id, uintptr_t arg0, 
     case OCALL_GETRANDOM:
       ret = enclave_getrandom(regs, arg0, arg1);
       break;
-    /* add our Ocall transition functions here. */
     case OCALL_CREATE_ENCLAVE:
-      // the arg0 is the VA of create_arg
       ret = privil_create_enclave(regs, arg0);
       break;
     case OCALL_ATTEST_ENCLAVE:
-      // the arg0 is the VA of attest_arg
       ret = privil_attest_enclave(regs, arg0);
       break;
     case OCALL_RUN_ENCLAVE:
-      // the arg0 is the VA of run_arg
       ret = privil_run_enclave(regs, arg0);
       break;
     case OCALL_STOP_ENCLAVE:
       ret = privil_stop_enclave(regs, arg0);
       break;
     case OCALL_RESUME_ENCLAVE:
-      // the arg0 is the VA of run_arg (also as resume arg)
       ret = privil_resume_enclave(regs, arg0);
       break;
     case OCALL_DESTROY_ENCLAVE:
-      // the arg0 is the idr-layer eid of target enclave.
       ret = privil_destroy_enclave(regs, arg0);
       break; 
     case OCALL_INSPECT_ENCLAVE:
       ret = privil_inspect_enclave(regs, arg0);
       break; 
     case OCALL_PAUSE_ENCLAVE:
-      // the arg1 is the VA of NE request arg
       ret = privil_pause_enclave(regs, arg0);
       break;
     default:

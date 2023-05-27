@@ -12,6 +12,12 @@
 
 #define PENGLAI_ENCLAVE_IOC_MAGIC  0xa4
 #define HASH_SIZE 32
+#define DEFAULT_HEAP_VMA_MAX    72
+#define DEFAULT_MMAP_VMA_MAX    72
+
+#define INSPECT_MEM     0
+#define INSPECT_REGS    1
+#define INSPECT_VMA     2
 
 #define PENGLAI_ENCLAVE_IOC_CREATE_ENCLAVE \
   _IOR(PENGLAI_ENCLAVE_IOC_MAGIC, 0x00, struct penglai_enclave_user_param)
@@ -60,6 +66,8 @@
 #define SIGNATURE_SIZE         64
 
 #define ELF_FILE_LEN           256
+/* 64*1024 \div PAGESZ => 16 */
+#define DEFAULT_STACK_PAGES 16
 
 struct sm_report_t
 {
@@ -151,6 +159,8 @@ struct penglai_enclave_user_param
   unsigned long schrodinger_size;
   unsigned long retval;
   char elf_file_name[ELF_FILE_LEN];
+  unsigned long migrate_arg;
+  unsigned long migrate_stack_pages;
 };
 
 struct penglai_shmget_param
@@ -231,7 +241,8 @@ typedef unsigned char byte;
 
 typedef struct ocall_create_param
 {
-  /* enclave */
+  /* allocated enclave */
+  /* inner layer eid */
   unsigned int eid;
   
   /* enclaveFile */
@@ -245,8 +256,7 @@ typedef struct ocall_create_param
   unsigned long shm_offset;
   unsigned long shm_size;
   char elf_file_name [ELF_FILE_LEN];
-
-
+  unsigned long migrate_arg;
 } ocall_create_param_t;
 
 typedef struct ocall_attest_param
@@ -270,9 +280,33 @@ typedef struct ocall_run_param
   unsigned long response_arg;    // VA in PE, send parameters to NE.
 } ocall_run_param_t;
 
+typedef struct vm_area_dump
+{
+  unsigned long va_start;
+  unsigned long va_end;
+} vm_area_dump_t;
+
+typedef struct enclave_mem_dump
+{
+  vm_area_dump_t text_vma;
+  vm_area_dump_t stack_vma;
+  unsigned long heap_sz;
+  unsigned long mmap_sz;
+  vm_area_dump_t heap_vma[DEFAULT_HEAP_VMA_MAX];
+  vm_area_dump_t mmap_vma[DEFAULT_MMAP_VMA_MAX];
+} enclave_mem_dump_t;
+
+typedef struct ocall_destroy_param
+{
+  int destroy_eid;
+  unsigned long op;
+  unsigned long dump_arg;  // VA in PE;
+} ocall_destroy_param_t;
+
 typedef struct ocall_inspect_param
 {
   int inspect_eid;
+  int dump_context;
   unsigned long inspect_address; // VA in NE
   unsigned long inspect_size;
   int reason;  // let sdk read (RDONLY), sync with *reason_ptr.
@@ -332,5 +366,42 @@ typedef struct ocall_response_share
   unsigned long dest_ptr; // VA in NE
   unsigned long share_size;
 } ocall_response_share_t;
+
+typedef struct snapshot_mem_area
+{
+  unsigned long vaddr;  // VA in PE
+  unsigned long start;  // VA in NE
+  unsigned long paddr;  // alloc by kernel, exactly 1 page .
+} snapshot_mem_area_t;
+
+typedef struct snapshot_mmap_state
+{
+  unsigned long mmap_sz;
+  snapshot_mem_area_t mmap_areas[DEFAULT_MMAP_VMA_MAX];
+} snapshot_mmap_state_t;
+
+typedef struct snapshot_heap_state
+{
+  unsigned long heap_sz;
+  snapshot_mem_area_t heap_areas[DEFAULT_HEAP_VMA_MAX];
+} snapshot_heap_state_t;
+
+/**
+ *  We use this parameter to migrate enclave. 
+ * \param regs is runtime register state of NE
+ * \param stack is VA in PE, contains stack pages in NE 
+ *        ([0] means highest page)
+ * \param mmap stores all mmap vma and its contents (VA in PE)
+ * \param heap stores all heap vma and its contents (VA in PE)
+*/
+typedef struct snapshot_state
+{
+  ocall_request_dump_t regs;
+  unsigned long stack_sz;
+  unsigned long stack[DEFAULT_STACK_PAGES];  
+  unsigned long stack_pa[DEFAULT_STACK_PAGES];
+  snapshot_mmap_state_t mmap;
+  snapshot_heap_state_t heap;
+} snapshot_state_t;
 
 #endif

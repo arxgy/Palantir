@@ -39,7 +39,6 @@
 #define OCALL_INSPECT_ENCLAVE		 22
 #define OCALL_PAUSE_ENCLAVE		 	 23
 
-
 #define __asm_syscall(...) \
 	__asm__ __volatile__ ("ecall\n\t" \
 	: "=r"(a0) : __VA_ARGS__ : "memory"); \

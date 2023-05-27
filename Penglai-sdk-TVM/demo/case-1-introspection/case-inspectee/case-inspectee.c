@@ -9,8 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUF_SZ    12
-
+#define MEM_DUMP_SIZE  512
+#define BUF_SZ         12
 int sim_input(char *buf)
 {
   char *input = "HELLOWORLD?!?DDHDS";
@@ -27,15 +27,25 @@ int hello(unsigned long * args)
   req.share_page_request = NULL;
   eapp_print("[ne] request_arg [%p], inspect_arg [%p].\n",
               (void *)(&req), (void *)(&inspect_req));
+              
   unsigned long selector = 0;
   char buffer[BUF_SZ];
   inspect_req.inspect_ptr = (unsigned long)(&selector);
   inspect_req.inspect_size = (unsigned long)(sizeof(unsigned long));
+  eapp_print("[ne] selector address: [%lx]\n", (unsigned long)(&selector));
   eapp_pause_enclave((unsigned long)(&req));
   sim_input(buffer);
   eapp_pause_enclave((unsigned long)(&req));
-  eapp_print("[ne] hello world!\n");
-  EAPP_RETURN(255);
+  if (!selector)
+  {
+    eapp_print("[ne] hello world!\n");
+    EAPP_RETURN(0);
+  }
+  else 
+  {
+    eapp_print("[ne] Oops.. Unexpected selector Value!\n");
+    EAPP_RETURN(1);
+  }
 }
 
 int EAPP_ENTRY main(){

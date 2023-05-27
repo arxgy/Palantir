@@ -25,6 +25,8 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/qsort/qsort-baseline \
 	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/sha512/sha512-baseline \
 	$(srcdir)/Penglai-sdk-TVM/demo/coremark/coremark \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-3-migration/case-migratee/case-migratee \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-3-migration/case-migrator/case-migrator \
 	$(srcdir)/Penglai-sdk-TVM/demo/relay-page/relay-page \
 	$(srcdir)/Penglai-sdk-TVM/demo/mem/mem \
 	$(srcdir)/Penglai-sdk-TVM/demo/IPC/caller/caller \
