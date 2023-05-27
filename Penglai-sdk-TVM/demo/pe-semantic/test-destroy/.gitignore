@@ -1,5 +1,0 @@
-runner
-test-destroy
-*.dump
-*.o
-*.S

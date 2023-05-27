@@ -1,4 +1,4 @@
-case-inspectee
+case-share
 *.dump
 *.o
 *.S

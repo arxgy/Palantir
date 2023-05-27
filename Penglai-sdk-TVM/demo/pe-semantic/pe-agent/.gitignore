@@ -1,5 +1,0 @@
-runner
-pe-agent
-*.dump
-*.o
-*.S
