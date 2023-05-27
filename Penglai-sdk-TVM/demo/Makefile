@@ -6,8 +6,7 @@ all:
 	make -C hello-world
 	make -C relay-page
 	make -C mem
-	make -C coremark
-	make -C rv8
+	make -C eval-1-benchmark
 	make -C IPC
 	make -C FS
 	make -C test-stop
@@ -28,8 +27,7 @@ clean:
 	make -C hello-world clean
 	make -C relay-page clean
 	make -C mem clean
-	make -C coremark clean
-	make -C rv8 clean
+	make -C eval-1-benchmark clean
 	make -C IPC clean
 	make -C FS clean
 	make -C test-stop clean

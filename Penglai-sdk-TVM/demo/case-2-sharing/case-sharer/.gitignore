@@ -1,0 +1,4 @@
+case-inspectee
+*.dump
+*.o
+*.S
