@@ -1385,7 +1385,7 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
     vaddr = state.stack[i];
     paddr = state.stack_pa[i];
 
-    copy_from_va = vaddr;
+    copy_from_va = state.stack[i];
     sbi_printf("[sm] [stack] copy_from_va [%lx]\n", copy_from_va);
     if ((copy_from_va & (PAGE_SIZE-1)) != 0)
     {
@@ -1413,8 +1413,8 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
     pma->size = PAGE_SIZE << 1;
     pma->pm_next = NULL;
 
-    vma->va_start = vaddr;
-    vma->va_end = vaddr + PAGE_SIZE;
+    vma->va_start = copy_to_va;
+    vma->va_end = copy_to_va + PAGE_SIZE;
     vma->vm_next = NULL;
     vma->pma = pma;
     if (insert_vma(&(enclave->stack_vma), vma, ENCLAVE_DEFAULT_STACK_BASE) < 0)
@@ -1422,8 +1422,20 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
       sbi_bug("[sm] [stack] insert vma failed.\n");
     }
     insert_pma(&(enclave->pma_list), pma);
-    mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), vma->va_start, paddr+PAGE_SIZE, PAGE_SIZE);
+    mmap((uintptr_t *)(enclave->root_page_table), &(enclave->free_pages), copy_to_va, (unsigned long)(copy_to_pa), PAGE_SIZE);
+
+    sbi_printf("[sm] checking stack mapping...\n");
+    void *test_pa = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(STACK_POINT - PAGE_SIZE));
+    if (!test_pa)
+    {
+      sbi_printf("[sm] mmap stack failed\n");
+    }
+    else 
+    {
+      sbi_printf("[sm] mmap stack result: [%p], copy_to_pa: [%p]\n", test_pa, copy_to_pa);
+    }
   }
+
   sbi_printf("[sm] start copy mmap\n");
 
   /* mmap copy */

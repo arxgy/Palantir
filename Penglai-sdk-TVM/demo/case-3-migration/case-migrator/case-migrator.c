@@ -19,6 +19,7 @@
 #define DEFAULT_INSPECT_TEXT_SIZE   512
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
+#define DEFAULT_REGS_NUM  39
 
 #define DEFAULT_SNAPSHOT_STAGE  15
 #define MMAP_SIZE PAGE_SIZE<<1
@@ -53,11 +54,23 @@ void printm(unsigned long start, unsigned long size)
   }
 }
 
+void printr(ocall_request_dump_t *regs)
+{
+  unsigned long *regs_entry = (unsigned long *)(regs);
+  int i = 0;
+  for (i = 0 ; i < DEFAULT_REGS_NUM ; i++)
+  {
+    eapp_print("x[%d]: [%lx]\n", i, *regs_entry);
+    regs_entry++;
+  }
+}
+
 void insert_mem_area(snapshot_mem_area_t *area, unsigned long vaddr, unsigned long start)
 {
   area->vaddr = vaddr;
   area->start = start;
 }
+
 
 int hello(unsigned long * args)
 {  
@@ -160,6 +173,7 @@ int hello(unsigned long * args)
       inspect_param.inspect_result = (unsigned long)(&dump_regs);
       eapp_inspect_enclave((unsigned long)(&inspect_param));
       eapp_print("[pe] CSR_MEPC [%lx], x[sp] [%lx]\n", dump_regs.mepc, dump_regs.state.sp);
+      printr(&dump_regs);
 
       inspect_param.dump_context = INSPECT_MEM;
       inspect_param.inspect_result = (unsigned long)(dump_mems);
@@ -180,6 +194,8 @@ int hello(unsigned long * args)
 
         copy_dest = eapp_mmap(NULL, MMAP_SIZE);
         memcpy(copy_dest, (void *)dump_mems, PAGE_SIZE);
+        /* print stack */
+        // printm(copy_dest, PAGE_SIZE);
         state.stack[state.stack_sz++] = (unsigned long)(copy_dest);
         eapp_print("[pe] [migrator] stack addr: [%lx]\n", (unsigned long)(copy_dest));
         if (copy_cur <= sp)
@@ -279,7 +295,7 @@ int hello(unsigned long * args)
     /* we reuse the [return reason] as [resume reason] */
     if (retval)
     {
-      eapp_print("[pe] [inspector] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
+      eapp_print("[pe] [inspector] eapp_run_enclave return_value non-zero: [%d]\n", return_value);
       break;
     }
     run_param.resume_reason = return_reason;
@@ -291,7 +307,7 @@ int hello(unsigned long * args)
     retval = eapp_resume_enclave((unsigned long)(&run_param));
   }
 
-  /* Then we restore Normal Enclave from (vma) dump struct (locally). */
+  /* create/restore Normal Enclave from (vma) dump struct (locally). */
   create_param.migrate_arg = (unsigned long)(&state);
   eapp_print("[pe] start migration from state at [%p]", (void *)(&state));
   retval = eapp_create_enclave((unsigned long)(&create_param));
@@ -299,7 +315,42 @@ int hello(unsigned long * args)
   {
     eapp_print("[pe] eapp_create_enclave [migrate] failed: %d\n",retval);
   }
+
   eapp_print("[pe] [migrator] Allocated [migrate] NORMAL ENCLAVE eid: [%d]\n", create_param.eid);
+  /* stack check passed. */
+  /* regs check passed */
+  /* run migrated enclave */
+  run_param.run_eid = create_param.eid;
+  retval = eapp_run_enclave((unsigned long)(&run_param));
+  while (retval == 0)
+  {
+    requested = 0;
+    switch (return_reason)
+    {
+    case NE_REQUEST_DEBUG_PRINT:
+      requested = 1;
+      break;
+    default:
+      break;
+    }
+    if (return_reason == RETURN_USER_EXIT_ENCL)
+    {
+      eapp_print("[pe] [migrator] eapp_run_enclave return_value: [%d]\n", return_value);
+      break;
+    }
+    if (retval)
+    {
+      eapp_print("[pe] [migrator] eapp_run_enclave return_value non-zero: [%d]\n", return_value);
+      break;
+    }
+    run_param.resume_reason = return_reason;
+    if (requested)
+    {
+      run_param.resume_reason = RETURN_USER_NE_REQUEST;        
+    }
+    retval = eapp_resume_enclave((unsigned long)(&run_param));
+  }
+  
 
   /* exit successfully */
   eapp_print("[pe] [migrator] hello world!\n");
