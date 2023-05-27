@@ -1,4 +1,4 @@
-fork-host
+norx
 *.dump
 *.o
 *.S

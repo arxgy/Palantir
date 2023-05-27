@@ -1,4 +1,4 @@
-fork-host
+sha512
 *.dump
 *.o
 *.S

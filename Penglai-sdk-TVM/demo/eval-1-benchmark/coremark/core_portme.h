@@ -72,8 +72,8 @@ typedef clock_t CORE_TICKS;
      Note these need to match the size of the clock output and the xLen the processor supports
  */
 typedef unsigned long int size_t;
-typedef unsigned long int clock_t;
-typedef clock_t CORE_TICKS;
+// typedef unsigned long int clock_t;
+typedef unsigned long int CORE_TICKS;
 #endif
 
 /* Definitions: COMPILER_VERSION, COMPILER_FLAGS, MEM_LOCATION

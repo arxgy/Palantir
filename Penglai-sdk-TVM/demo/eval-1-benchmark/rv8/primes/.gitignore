@@ -1,4 +1,4 @@
-fork-host
+primes
 *.dump
 *.o
 *.S

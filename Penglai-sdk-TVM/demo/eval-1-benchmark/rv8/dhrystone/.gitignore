@@ -1,4 +1,4 @@
-fork-host
+dhrystone
 *.dump
 *.o
 *.S
