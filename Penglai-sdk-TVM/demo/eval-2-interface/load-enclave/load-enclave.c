@@ -1,3 +1,8 @@
+/**
+ * This program is a Normal Enclave demo in Interface-level Evaluation.
+ * SIZE is defined to expand our elf file size to maximal 128MB for create test.
+ *  by Ganxiang Yang @ May 28, 2023.
+*/
 #include "eapp.h"
 #include "privil.h"
 #include "print.h"
