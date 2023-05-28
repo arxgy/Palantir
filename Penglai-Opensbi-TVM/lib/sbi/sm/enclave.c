@@ -646,7 +646,7 @@ struct children_enclave_t* __alloc_children(struct link_mem_t *metadata_head, st
     metadata_head = init_mem_link(CHILDREN_METADATA_REGION_SIZE, sizeof(struct children_enclave_t));
     if(!metadata_head)
     {
-      sbi_printf("M mode: __alloc_children: don't have enough mempry\n");
+      // sbi_printf("M mode: __alloc_children: don't have enough mempry\n");
       goto alloc_children_out;
     }
     metadata_tail = metadata_head;
@@ -1611,7 +1611,7 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
     if (!children_enclave)
     {
       ret = ENCLAVE_NO_MEM;
-      sbi_bug("M mode: __alloc_children no enough memory\n");
+      // sbi_bug("M mode: __alloc_children no enough memory\n");
       goto release_and_fail;
     }
     children_enclave->eid = enclave->eid;
@@ -2614,6 +2614,7 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   }
   else if (return_reason == NE_REQUEST_DEBUG_PRINT)
   {
+    return ret;
     sbi_printf("[sm] [swap_from_host_to_enclave] eid [%u]\n", enclave->eid);
     sbi_printf("[sm] _stack_top [%lx], _heap_top [%lx]\n", enclave->_stack_top, enclave->_heap_top);
     struct vm_area_struct* cur_vma = NULL;
@@ -2739,6 +2740,7 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   }
   else if (return_reason == NE_REQUEST_DEBUG_PRINT)
   {
+    return ret;
     sbi_printf("[sm] [swap_from_host_to_enclave] eid [%u]\n", tgt_enclave->eid);
     sbi_printf("[sm] _stack_top [%lx], _heap_top [%lx]\n", tgt_enclave->_stack_top, tgt_enclave->_heap_top);
     struct vm_area_struct* cur_vma = NULL;

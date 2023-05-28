@@ -1,7 +1,7 @@
 /**
  * This program is a Normal Enclave demo in Memory Inspection evaluation
- * which allocate a 1MB pages and return start address to PE.
- *  by Ganxiang Yang @ May 24, 2023.
+ * which allocate a 64MB pages and return start address to PE for inspection.
+ *  by Ganxiang Yang @ May 28, 2023.
 */
 #include "eapp.h"
 #include "privil.h"
