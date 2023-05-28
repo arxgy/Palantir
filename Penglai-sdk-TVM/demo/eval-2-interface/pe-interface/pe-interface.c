@@ -17,11 +17,11 @@
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
 
-#define LOG_BATCH_SIZE 8
+#define LOG_BATCH_SIZE 3
 #define BATCH_SIZE  1<<LOG_BATCH_SIZE
 int hello(unsigned long * args)
 {  
-  char *elf_file_name = "/root/hello-world";
+  char *elf_file_name = "/root/load-enclave";
   ocall_create_param_t create_param;
 
   /* parameter preparation */

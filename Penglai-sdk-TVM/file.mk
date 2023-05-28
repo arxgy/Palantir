@@ -21,6 +21,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8-pe/rv8-pe \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-2-interface/host-interface/host-interface \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-2-interface/pe-interface/pe-interface \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-2-interface/load-enclave/load-enclave \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-inspectee/eval-inspectee \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-inspector/eval-inspector \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-migratee/eval-migratee \
