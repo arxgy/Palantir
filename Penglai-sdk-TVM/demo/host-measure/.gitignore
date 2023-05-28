@@ -1,5 +1,6 @@
 hello
 host
+host-measure
 host\ copy.c
 *.dump
 *.o
