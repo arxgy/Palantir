@@ -1,12 +1,12 @@
 /**
- * This program is a Privileged Enclave demo in Memory Sharing case study, 
- * which supports three Normal Enclave execute interleavingly, 
- *    supports Memory Sharing Functionality among them,
+ * This program is a Privileged Enclave demo in Memory Sharing evaluation, 
+ * which supports two Normal Enclave execute interleavingly, 
+ *    supports Memory Sharing Functionality between them,
  *    and exits to host if both Normal Enclave have exited.
  * In this case study, 
  *    sharer/sender (case-sharer) will set one private page as public (ONLY for its PE and other peer NE),
- *    sharee/recver (case-sharee & case-sharee-plus) will acquire this page and read it. 
- *  by Ganxiang Yang @ May 22, 2023.
+ *    sharee/recver (case-sharee) will acquire this page and read it. 
+ *  by Ganxiang Yang @ May 28, 2023.
 */
 #include "eapp.h"
 #include "print.h"
@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #define DEFAULT_STACK_SIZE  64*1024
-#define NE_NUMBER 3
+#define NE_NUMBER 2
 /* too large SHARE_LIMIT cause mmap error, out-of-scope */
 #define SHARE_LIMIT 1 << 4
 /* A better allocation method is required. */
@@ -49,13 +49,22 @@ int share_id_alloc(int *prev)
   return ++(*prev);
 }
 
+unsigned long get_cycle(void){
+	unsigned long n;
+	 __asm__ __volatile__("rdcycle %0" : "=r"(n));
+	 return n;
+}
+
 
 int hello(unsigned long * args)
 {
+  unsigned long total_cycle = 0, begin_cycle, end_cycle;
+  unsigned long interleave_cycle = 0, interleave_begin, interleave_end;
+  unsigned long page_idx = 0;
   int retval = 0, prev = 0;
   int requested = 0, i = 0, thread_init = 0;
 
-  char *elf_file_names[NE_NUMBER] = {"/root/case-sharer", "/root/case-sharee", "/root/case-sharee-plus"};
+  char *elf_file_names[NE_NUMBER] = {"/root/eval-sharer", "/root/eval-sharee"};
   int share_id_counts[NE_NUMBER];
   memset(share_id_counts, 0, sizeof(int)*NE_NUMBER);
   share_record_t share_records[SHARE_LIMIT];
@@ -79,7 +88,7 @@ int hello(unsigned long * args)
     {
       eapp_print("eapp_create_enclave failed: %d\n",retval);
     }
-    eapp_print("Allocated [%d]-th NORMAL ENCLAVE eid: [%d]\n", i, create_params[i].eid);
+    // eapp_print("Allocated [%d]-th NORMAL ENCLAVE eid: [%d]\n", i, create_params[i].eid);
     share_id_counts[i] = 0;
   }
   int return_reasons[NE_NUMBER], return_values[NE_NUMBER];
@@ -110,8 +119,8 @@ int hello(unsigned long * args)
     request_params[i].share_page_request = (unsigned long)(&(share_params[i]));
     response_params[i].inspect_response = NULL;
     response_params[i].share_page_response = (unsigned long)(&(share_responses[i]));
-    eapp_print("[pe] thread [%lx]: response_arg[%lx], share_page_response[%lx]\n",
-                i, (unsigned long)(&(response_params[i])), (unsigned long)(&(share_responses[i])));
+    // eapp_print("[pe] thread [%lx]: response_arg[%lx], share_page_response[%lx]\n",
+    //             i, (unsigned long)(&(response_params[i])), (unsigned long)(&(share_responses[i])));
   }
 
   int init_run[NE_NUMBER];
@@ -135,7 +144,7 @@ int hello(unsigned long * args)
       }
     }
     prev = i;
-    eapp_print("[pe] previous run thread: %d\n", prev);
+    // eapp_print("[pe] previous run thread: %d\n", prev);
     if (return_reasons[prev] == RETURN_USER_EXIT_ENCL)
     {
       eapp_print("[pe] thread: %d exit!\n", prev);
@@ -161,11 +170,6 @@ int hello(unsigned long * args)
         int share_size_int = share_params[prev].share_size;
         int share_eid_int = share_params[prev].eid;
         int share_id_int = share_params[prev].share_id;
-        eapp_print("[pe] receive [%d] NE_REQUEST_SHARE_PAGE with ptr [%lx] and size [%d]. Alloc page [%d]\n", 
-                    share_eid_int,
-                    share_params[prev].share_content_ptr, 
-                    share_params[prev].share_size, 
-                    share_id_int);
         /* add/copy the share page message to record */
         share_records[share_record_count].eid = share_params[prev].eid;
         share_records[share_record_count].share_id = share_params[prev].share_id;
@@ -176,10 +180,9 @@ int hello(unsigned long * args)
       case NE_REQUEST_ACQUIRE_PAGE:
         /* NE provides eid & share_id & content_ptr & size */
         requested = 1;
-        /* todo. */
-        eapp_print("[sm] NE_REQUEST_ACQUIRE_PAGE: target eid [%lx], share_id [%lx].\n", 
-                    share_params[prev].eid,
-                    share_params[prev].share_id);
+        // eapp_print("[sm] NE_REQUEST_ACQUIRE_PAGE: target eid [%lx], share_id [%lx].\n", 
+        //             share_params[prev].eid,
+        //             share_params[prev].share_id);
         int iter = 0, found = 0, share_idx = 0;
         for (iter = 0; iter < SHARE_LIMIT ; iter++)
         {
@@ -196,12 +199,11 @@ int hello(unsigned long * args)
         /* fill inspect param, do inspection */
         /* This check might be redundant */
         int eid_int = share_params[prev].eid;
-        eapp_print("[pe] share_params[prev].eid: [%d]", eid_int);
+        // eapp_print("[pe] share_params[prev].eid: [%d]", eid_int);
         found = 0;
         for (iter = 0; iter < NE_NUMBER ; iter++)
         {
           eid_int = create_params[iter].eid;
-          eapp_print("[pe] create_params[%d].eid: [%d].\n", iter, eid_int);
           if (create_params[iter].eid == share_params[prev].eid)
           {
             found = 1;
@@ -210,27 +212,20 @@ int hello(unsigned long * args)
         }
         if (!found)
           eapp_print("[pe] [ERROR] cannot find target peer Normal Enclave.\n");
-        ocall_inspect_param_local.dump_context = 0;
+        ocall_inspect_param_local.dump_context = INSPECT_MEM;
         ocall_inspect_param_local.inspect_eid = share_params[prev].eid;
-        ocall_inspect_param_local.inspect_address = share_records[share_idx].vaddr;
-        ocall_inspect_param_local.inspect_size = share_records[share_idx].size;
+        ocall_inspect_param_local.inspect_address = share_records[share_idx].vaddr + (page_idx++)*PAGE_SIZE;
+        ocall_inspect_param_local.inspect_size = PAGE_SIZE;
+        begin_cycle = get_cycle();
         eapp_inspect_enclave((unsigned long)(&ocall_inspect_param_local));
-        eapp_print("%s", inspect_content);
+        end_cycle = get_cycle();
+        eapp_print("[pe] [eval-share] This cycle cost: [%lx]\n", (end_cycle-begin_cycle));
+        total_cycle += end_cycle - begin_cycle;
         /* pass result back. */
         response_params[prev].request = NE_REQUEST_ACQUIRE_PAGE;
         share_responses[prev].src_ptr = (unsigned long)(inspect_content);
         share_responses[prev].dest_ptr = share_params[prev].share_content_ptr;
         share_responses[prev].share_size = share_params[prev].share_size;
-        eapp_print("[pe] prev [%lx], response_arg (VA)[%lx], response_request [%lx], share_page_response (VA)[%lx].\n", 
-                    prev,
-                    run_params[prev].response_arg, 
-                    response_params[prev].request, 
-                    response_params[prev].share_page_response);
-        eapp_print("[pe] prev [%lx], share src (VA)[%lx], share dest [%lx], share_size [%lx]\n", 
-                    prev,
-                    share_responses[prev].src_ptr, 
-                    share_responses[prev].dest_ptr, 
-                    share_responses[prev].share_size);
         break;
       default:
         break;
@@ -247,9 +242,19 @@ int hello(unsigned long * args)
     
     if (thread_init)
       continue;
-    eapp_print("[pe] resume to execute thread %lx.\n", i);
+    if (i == 0)
+    {
+      interleave_begin = get_cycle();
+    }
+    else 
+    {
+      interleave_end = get_cycle();
+      interleave_cycle += interleave_end - interleave_begin;
+    }
     retval = eapp_resume_enclave((unsigned long)(&(run_params[i])));
   }
+  eapp_print("[pe] [eval-share] load cost cycle: [%lx]\n", total_cycle);
+  // eapp_print("[pe] [eval-share] interleaving execution cost cycle: [%lx]\n", interleave_cycle);
   eapp_print("[pe] hello world!\n");
   EAPP_RETURN(0);
 }

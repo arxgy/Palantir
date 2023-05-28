@@ -1,0 +1,4 @@
+eval-sharee
+*.dump
+*.o
+*.S
