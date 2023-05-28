@@ -7,6 +7,7 @@ all:
 	make -C relay-page
 	make -C mem
 	make -C eval-1-benchmark
+	make -C eval-3-cases
 	make -C IPC
 	make -C FS
 	make -C test-stop
@@ -27,6 +28,7 @@ clean:
 	make -C relay-page clean
 	make -C mem clean
 	make -C eval-1-benchmark clean
+	make -C eval-3-cases clean
 	make -C IPC clean
 	make -C FS clean
 	make -C test-stop clean

@@ -345,11 +345,6 @@ int PLenclave_attest(struct PLenclave *PLenclave, uintptr_t nonce)
   PLenclave->attest_param.eid = PLenclave->eid;
   PLenclave->attest_param.nonce = nonce;
   ret = ioctl(PLenclave->fd, PENGLAI_ENCLAVE_IOC_ATTEST_ENCLAVE, &(PLenclave->attest_param));
-  if (PLenclave->user_param.isShadow) {
-    printf("\nAttesting: is shadow\n");
-  } else {
-    printf("\nAttesting: is normal\n");
-  }
   if(ret < 0)
   {
     fprintf(stderr, "LIB: ioctl attest enclave is failed ret %d \n", ret);
