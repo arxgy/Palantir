@@ -9,7 +9,7 @@
 #include "print.h"
 #include <stdlib.h>
 #include <string.h>
-#define LOG_ACQUIRE_PAGE 8
+#define LOG_ACQUIRE_PAGE 10
 
 int hello(unsigned long * args)
 {
@@ -28,7 +28,7 @@ int hello(unsigned long * args)
   /* similuating do other things. */
   unsigned iter;
   iter = 0;
-  while (iter < 1 << 27)
+  while (iter < 1 << 30)
   {
     iter++;
   }

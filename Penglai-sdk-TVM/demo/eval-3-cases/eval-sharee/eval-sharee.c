@@ -13,7 +13,7 @@
 
 #define MAGIC_PEER_EID 4097
 #define MAGIC_PAGE_ID  1
-#define LOG_ACQUIRE_PAGE 8
+#define LOG_ACQUIRE_PAGE 10
 
 unsigned long get_cycle(void){
 	unsigned long n;

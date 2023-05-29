@@ -10,13 +10,20 @@ struct args
   int i;
 };
 
+unsigned long get_cycle(void){
+	unsigned long n;
+	 __asm__ __volatile__("rdcycle %0" : "=r"(n));
+	 return n;
+}
+
 void* create_enclave(void* args0)
 {
   struct args *args = (struct args*)args0;
   void* in = args->in;
   int i = args->i;
   int ret = 0, result = 0;
-  
+  unsigned long total_cycle = 0, begin_cycle;
+
   struct PLenclave* enclave = malloc(sizeof(struct PLenclave));
   struct enclave_args* params = malloc(sizeof(struct enclave_args));
   PLenclave_init(enclave);
@@ -48,6 +55,7 @@ void* create_enclave(void* args0)
   /* Try to launch a PE. */
   params->type = PRIVIL_ENCLAVE;
   
+  begin_cycle = get_cycle();
   if(PLenclave_create(enclave, enclaveFile, params) < 0)
   {
     printf("host:%d: failed to create enclave\n", i);
@@ -60,6 +68,7 @@ void* create_enclave(void* args0)
       PLenclave_set_mem_arg(enclave, mm_arg_id, 0, mm_arg_size);
     while (result = PLenclave_run(enclave))
     {
+      total_cycle += get_cycle()-begin_cycle;
       switch (result)
       {
         case RETURN_USER_RELAY_PAGE:
@@ -73,10 +82,12 @@ void* create_enclave(void* args0)
           goto free_enclave;
         }
       }
+      begin_cycle = get_cycle();
     }
   }
   PLenclave_destruct(enclave);
-  printf("host: PLenclave run is finish \n");
+  total_cycle += get_cycle()-begin_cycle;
+  printf("host: total_cycle: [%lu]\n", total_cycle);
 
 free_enclave:  
   PLenclave_shmdt(shmid, shm);

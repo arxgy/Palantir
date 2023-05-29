@@ -17,7 +17,7 @@
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
 
-#define LOG_BATCH_SIZE 3
+#define LOG_BATCH_SIZE 0
 #define BATCH_SIZE  1<<LOG_BATCH_SIZE
 int hello(unsigned long * args)
 {  

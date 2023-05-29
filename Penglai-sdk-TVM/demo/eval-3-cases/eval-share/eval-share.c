@@ -91,6 +91,7 @@ int hello(unsigned long * args)
     // eapp_print("Allocated [%d]-th NORMAL ENCLAVE eid: [%d]\n", i, create_params[i].eid);
     share_id_counts[i] = 0;
   }
+  unsigned prev_pause = 0;
   int return_reasons[NE_NUMBER], return_values[NE_NUMBER];
   ocall_run_param_t run_params[NE_NUMBER];
   ocall_request_t request_params[NE_NUMBER];
@@ -119,8 +120,6 @@ int hello(unsigned long * args)
     request_params[i].share_page_request = (unsigned long)(&(share_params[i]));
     response_params[i].inspect_response = NULL;
     response_params[i].share_page_response = (unsigned long)(&(share_responses[i]));
-    // eapp_print("[pe] thread [%lx]: response_arg[%lx], share_page_response[%lx]\n",
-    //             i, (unsigned long)(&(response_params[i])), (unsigned long)(&(share_responses[i])));
   }
 
   int init_run[NE_NUMBER];
@@ -148,6 +147,9 @@ int hello(unsigned long * args)
     if (return_reasons[prev] == RETURN_USER_EXIT_ENCL)
     {
       eapp_print("[pe] thread: %d exit!\n", prev);
+      if (prev == 1)
+        eapp_print("[pe] [eval-share] interleaving cycle: [%lx]\n", interleave_cycle);
+
       thread_valid[prev] = 0;
       i = ne_scheduler(prev);
       
@@ -219,8 +221,9 @@ int hello(unsigned long * args)
         begin_cycle = get_cycle();
         eapp_inspect_enclave((unsigned long)(&ocall_inspect_param_local));
         end_cycle = get_cycle();
-        eapp_print("[pe] [eval-share] This cycle cost: [%lx]\n", (end_cycle-begin_cycle));
         total_cycle += end_cycle - begin_cycle;
+        interleave_begin = get_cycle();
+        prev_pause = 1;
         /* pass result back. */
         response_params[prev].request = NE_REQUEST_ACQUIRE_PAGE;
         share_responses[prev].src_ptr = (unsigned long)(inspect_content);
@@ -239,22 +242,19 @@ int hello(unsigned long * args)
 
     // select next running enclave.
     i = ne_scheduler(prev);
-    
+
     if (thread_init)
       continue;
-    if (i == 0)
+    if (i == 1 && prev_pause)
     {
-      interleave_begin = get_cycle();
-    }
-    else 
-    {
+      prev_pause = 0;
       interleave_end = get_cycle();
-      interleave_cycle += interleave_end - interleave_begin;
+      interleave_cycle += (interleave_end-interleave_begin);
+      // eapp_print("[pe] [eval-share] add interleaving cost cycle: [%lx]\n", (interleave_end-interleave_begin));
     }
     retval = eapp_resume_enclave((unsigned long)(&(run_params[i])));
   }
   eapp_print("[pe] [eval-share] load cost cycle: [%lx]\n", total_cycle);
-  // eapp_print("[pe] [eval-share] interleaving execution cost cycle: [%lx]\n", interleave_cycle);
   eapp_print("[pe] hello world!\n");
   EAPP_RETURN(0);
 }
