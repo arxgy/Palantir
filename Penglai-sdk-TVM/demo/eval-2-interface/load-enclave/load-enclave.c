@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SIZE 130000000
+#define SIZE 16000000
 
 char dummy[SIZE] = {'a'};
 

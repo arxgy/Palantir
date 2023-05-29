@@ -149,24 +149,9 @@ void* create_enclave(void* args0)
     attest_time += (attest_end - attest_start);
     if(mm_arg_id > 0 && mm_arg)
       PLenclave_set_mem_arg(enclave, mm_arg_id, 0, mm_arg_size);
-    while (result = PLenclave_run(enclave))
-    {
-      switch (result)
-      {
-        case RETURN_USER_RELAY_PAGE:
-          ((int*)mm_arg)[0] = 0;
-          PLenclave_set_rerun_arg(enclave, RETURN_USER_RELAY_PAGE);
-          break;
-        default:
-        {
-          printf("[ERROR] host: result %d val is wrong!\n", result);
-          goto free_enclave;
-        }
-      }
-    }
   }
   PLenclave_destruct(enclave);
-  printf("host: PLenclave run is finish \n");
+  printf("host: PLenclave run is not run \n");
 
 free_enclave:  
   PLenclave_shmdt(shmid, shm);
