@@ -1,8 +1,8 @@
-![Penglai logo](docs/images/penglai_logo.jpg)
+# Penglai-TVM-Privileged
+This repository provides the __Implementation__ and __Evaluation__ part of <span style="font-variant:small-caps;">Palantír</span> framework.
 
 Penglai-Enclave is a scalable enclave system for RISC-V architecture.
-
-You can find more details in our online document: [Penglai-doc](https://penglai-doc.readthedocs.io/en/latest/)
+You can find more details in its online document: [Penglai-doc](https://penglai-doc.readthedocs.io/en/latest/)
 
 ## Quick Start
 
@@ -47,25 +47,80 @@ Enter the terminal with the user name: root, and passwords: penglai.
 
 `sh install.sh`
 
-And the, you can run a demo, e.g., a hello-world enclave, using
+Any instruction below should be executed after you have booted your Penglai-TVM enclave platform, `./docker_cmd.sh qemu` is recommended.
+For more details please refer to our code.
 
-`./host  hello-world`
+### Evaluation 1. Computational Overhead
 
-Here, the  `host` is an enclave invoker, which will start an enclave (name from input).
+In this section we evaluate Palantír's overhead by perform RV8 Benchmark Suite onto our Children Enclaves(CE).
+
+- Native Linux 
+    
+    Just run rv8 on your Linux host machine.
+- Penglai-TVM
+  ```
+  ./host-measure casename
+  ```
+- Palantír
+
+  Change the `elf_file_name` inside `Penglai-sdk-TVM/demo/eval-1-benchmark/rv8-pe/rv8-pe.c` to `root/$(casename)` for any `casename` in RV8 suite. Then run
+  ```
+  ./host rv8-pe
+  ```
+
+
+### Evaluation 2. Interface
+
+The `load-enclave` is a special program whose binary size can be controlled by macro `SIZE` inside.
+So we dynamically adjust `SIZE` to evaluate time cost of `CREATE` and `ATTEST` in Penglai-TVM and Palantír.
+
+- Penglai-TVM  
+
+  ```
+  ./host-interface load-enclave
+  ```
+- Palantír
+
+  ```
+  ./pe-interface load-enclave
+  ```
+ 
+### Evaluation 3. Case Studies
+
+#### Memory Sharing
+```
+./host case-inspector
+```
+
+In this case, `case-inspector`, the Privileged Enclave (PE),  will launch `case-inspectee` and perform introspection onto it.
+
+#### Live Enclave Introspection
+```
+./host case-share
+```
+
+In this case, `case-share`, the PE, will launch `case-sharer`, `case-sharee`, `case-sharee-plus` and plays as a scheduler.
+During execution, `case-sharer` will share a chunk of its virtual address space to PE and other peer CE.
+Then `case-sharee`, `case-sharee-plus` will require `case-sharer`'s page respectively, thus ensuring memory sharing.
+
+#### Live Enclave Migration
+```
+./host case-migraor
+```
+
+In this case, we perform a enclave migration locally.
+First, `case-migrator`, the PE, will `DESTROY` its children enclave `case-migratee`.
+Then `case-migrator` re-create `case-migratee` from its stored runtime state and resume to execution.
+
+The state encrytion, file generation, and socket support are orthogonal to our work.
+Since Penglai-TVM does not support socket, we leave remote enclave migration to future. 
+
+
 
 ## License Details
 
 Mulan Permissive Software License，Version 1 (Mulan PSL v1)
 
-## Code Structures
-
-- penglai-buildroot: The buildroot rootfs for Penglai
-- penglai-linux-5.10.2: The Untrusted OS kernel (kernel 5.10.2) for Penglai
-- penglai-opensbi: The secure monitor of Penglai, implementing isolation using TVM/PT_ATEA
-- penglai-qemu: The modified qemu (4.1.1) to support sPMP
-- scripts: some scripts to build/run Penglai demo
-- conf: some configuration files to build Penglai
-- copy-files: a temp dir to store files copied into Penglai
 
 ## Code Contributions
 
@@ -73,19 +128,10 @@ If you are developing Penglai, please use pull requests on **target submodule pr
 
 Please feel free to post your concerns, ideas, code or anything others to issues.
 
-## Wiki
-
-Please refer the wiki for more details
-
 ## Collaborators
 
-We thank all of our collaborators (companies, organizations, and communities).
+__Implementation__: Ganxiang Yang (yangganxiang@sjtu.edu.cn).
 
-[<img alt="Huawei" src="./docs/collaborator-logos/huawei.png" width="146">](https://www.huawei.com/) |[<img alt="nuclei" src="./docs/collaborator-logos/nuclei.png" width="146">](https://www.nucleisys.com/) |[<img alt="StarFive" src="./docs/collaborator-logos/starfive.jpeg" width="146">](https://starfivetech.com/) |[<img alt="ISCAS" src="./docs/collaborator-logos/ISCAS.svg" width="146">](http://www.is.cas.cn/) |
-:---: |:---: |:---: |:---: |
-[Huawei (华为)](https://www.huawei.com/) |[Nuclei (芯来科技)](https://www.nucleisys.com/) |[StarFive (赛昉科技)](https://starfivetech.com/) |[ISCAS(中科院软件所)](http://www.is.cas.cn/) |
+__Evaluation__: Ganxiang Yang, Chenyang Liu (zzshlcyy@sjtu.edu.cn).
 
-[<img alt="openEuler" src="./docs/collaborator-logos/openeuler.png" width="146">](https://openeuler.org/) |[<img alt="OpenHarmony" src="./docs/collaborator-logos/OpenHarmony.svg" width="146">](https://www.openharmony.cn/) |[<img alt="secGear" src="./docs/collaborator-logos/secGear.png" width="146">](https://gitee.com/openeuler/secGear) |
-:---: |:---: |:---: |
-[openEuler community](https://openeuler.org/) |[OpenHarmony community](https://www.openharmony.cn/) |[secGear framework](https://gitee.com/openeuler/secGear)|
 
