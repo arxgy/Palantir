@@ -1,7 +1,7 @@
 /**
  * This program is a Normal Enclave demo in Memory Inspection case study,
  * which sequentially simulates a buffer-overflow and a ROP attack.
- *  by Ganxiang Yang @ May 24, 2023.
+ *  by Anonymous Author @ May 24, 2023.
 */
 #include "eapp.h"
 #include "privil.h"

@@ -9,7 +9,7 @@
  *  4. Variable Inspection @ EACH request
  * Note that we can perform any inspection given above at any time. 
  * As a demo we only perform some of them on several loops from NE startup.
- *  by Ganxiang Yang @ May 24, 2023.
+ *  by Anonymous Author @ May 24, 2023.
 */
 #include "eapp.h"
 #include "print.h"
@@ -24,7 +24,7 @@
  * Set NE default parameter here. 
  * Specifically, these parameter should be get from eapp_create_enclave,
  * which is left to our future work.
- *  by Ganxiang Yang @ May 24, 2023.
+ *  by Anonymous Author @ May 24, 2023.
 */
 #define ENTRY_POINT 0x1000
 #define DEFAULT_INSPECT_TEXT_SIZE   512

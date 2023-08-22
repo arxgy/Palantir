@@ -6,7 +6,7 @@
  * In this case study, 
  *    sharer/sender (case-sharer) will set one private page as public (ONLY for its PE and other peer NE),
  *    sharee/recver (case-sharee & case-sharee-plus) will acquire this page and read it. 
- *  by Ganxiang Yang @ May 22, 2023.
+ *  by Anonymous Author @ May 22, 2023.
 */
 #include "eapp.h"
 #include "print.h"

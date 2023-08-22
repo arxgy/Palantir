@@ -2,7 +2,7 @@
  * This program is a Normal Enclave demo in Memory Sharing case study, 
  * which plays a sharer/sender role in memory sharing and 
  *       sends sharing request to PE.
- *  by Ganxiang Yang @ May 22, 2023.
+ *  by Anonymous Author @ May 22, 2023.
 */
 #include "eapp.h"
 #include "privil.h"

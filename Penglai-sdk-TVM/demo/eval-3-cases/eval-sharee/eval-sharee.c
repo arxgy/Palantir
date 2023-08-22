@@ -3,7 +3,7 @@
  * which plays a sharee/recver role in memory sharing, 
  *       sends acquiring shared-page request to PE,
  *       and receive the corresponding sharer page.
- *  by Ganxiang Yang @ May 28, 2023.
+ *  by Anonymous Author @ May 28, 2023.
 */
 #include "eapp.h"
 #include "privil.h"

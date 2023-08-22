@@ -623,7 +623,7 @@ struct enclave_t* __get_real_enclave(int eid)
 /*            Enclave Ownership             */
 /********************************************/
 /*
-  provided by Ganxiang Yang @ May 10, 2023.
+  provided by Anonymous Author @ May 10, 2023.
  */
 
 /** 
@@ -1346,7 +1346,7 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
    * Theres' a mysterious sbug. 
    * Allocated to copy_buf (on stack) will cause Store/AMO access fault (mcause = 0x7; mtval = 0x0) sometimes.
    * But if we reuse the similar [buffer] variable on stack, this bug vanished?
-   *  by Ganxiang Yang @ May 26, 2023. 
+   *  by Anonymous Author @ May 26, 2023. 
   */
   // char copy_buf[PAGE_SIZE];
   // char buffer[PAGE_SIZE]; // larger than sizeof(state)
@@ -2448,7 +2448,7 @@ run_enclave_out:
 }
 
 /** add our after_resume function here for parameter write-back
- * by Ganxiang Yang @ May 13, 2023.
+ * by Anonymous Author @ May 13, 2023.
 */
 /**
  * \brief Write the allocated eid back to PE's param
@@ -4461,7 +4461,7 @@ out:
 
 /**
  * todo: add PE ocalls.
- * by Ganxiang Yang @ May 8, 2023.
+ * by Anonymous Author @ May 8, 2023.
 */
 
 /**
@@ -4987,7 +4987,7 @@ out:
  * 
  * \details This primitive should only be called by NE that governed by PE for now.
  * It's also explainable for pausing other legacy enclave designs, but we leave it as our future work.
- * by Ganxiang Yang @ May 17, 2023.
+ * by Anonymous Author @ May 17, 2023.
 */
 uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
 {

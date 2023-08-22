@@ -3,7 +3,7 @@
  * which will 
  *  1. stoppped the Normal Enclave, dump files
  *  2. restore the Normal Enclave from given dump files, implement Live Migration.
- *  by Ganxiang Yang @ May 25, 2023.
+ *  by Anonymous Author @ May 25, 2023.
 */
 #include "eapp.h"
 #include "print.h"

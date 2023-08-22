@@ -130,8 +130,8 @@ Please feel free to post your concerns, ideas, code or anything others to issues
 
 ## Collaborators
 
-__Implementation__: Ganxiang Yang (yangganxiang@sjtu.edu.cn).
+__Implementation__: Anonymous Author.
 
-__Evaluation__: Ganxiang Yang, Chenyang Liu (zzshlcyy@sjtu.edu.cn).
+__Evaluation__: Anonymous Author, Anonymous Author.
 
 

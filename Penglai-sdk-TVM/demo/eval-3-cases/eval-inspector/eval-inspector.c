@@ -2,7 +2,7 @@
  * This program is a Privileged Enclave demo in Memory Inspection evaluation,
  * which do live enclave memory inspection on target Normal Enclave.
  * The Privileged Enclave accept inspect request and sequentially do inspection by different sizes.
- *  by Ganxiang Yang @ May 28, 2023.
+ *  by Anonymous Author @ May 28, 2023.
 */
 #include "eapp.h"
 #include "print.h"
@@ -17,7 +17,7 @@
  * Set NE default parameter here. 
  * Specifically, these parameter should be get from eapp_create_enclave,
  * which is left to our future work.
- *  by Ganxiang Yang @ May 24, 2023.
+ *  by Anonymous Author @ May 24, 2023.
 */
 #define ENTRY_POINT 0x1000
 #define DEFAULT_INSPECT_TEXT_SIZE   512

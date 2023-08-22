@@ -6,7 +6,7 @@
  * \details During migration, we will ensure the Integrity of data in mmap/heap/stack/code regions. 
  *          But since in this case we only migrate single Normal Enclave (migratee), 
  *          we cannot ensure some specific sharing features given by Penglai, such as Relay Page and shm.
- *  by Ganxiang Yang @ May 25, 2023.
+ *  by Anonymous Author @ May 25, 2023.
 */
 #include "eapp.h"
 #include "privil.h"

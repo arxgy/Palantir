@@ -375,7 +375,7 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
    *       from [RUNNABLE] to [RUNNING] (re-enter its NE children).
    *       For other possible resume_reason values, we will add them in future work.
    * \details After handle request, the return_reason is not diversed. All are RETURN_USER_NE_REQUEST;
-   *  by Ganxiang Yang @ May 15, 2023.
+   *  by Anonymous Author @ May 15, 2023.
   */
   switch (ocall_resume_param_local->resume_reason)
   {

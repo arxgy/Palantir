@@ -4,7 +4,7 @@
  *       sends acquiring shared-page request to PE,
  *       and receive the corresponding sharer page.
  * This demo shows a more flexible and fine-grained memory sharing demo.
- *  by Ganxiang Yang @ May 23, 2023.
+ *  by Anonymous Author @ May 23, 2023.
 */
 #include "eapp.h"
 #include "privil.h"

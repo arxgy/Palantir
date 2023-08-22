@@ -203,7 +203,7 @@ struct enclave_t
 /* 
   entry for children enclave's messages 
   now only support eid for indexing & state for slab 
-    provided by Ganxiang Yang @ May 10, 2023.
+    provided by Anonymous Author @ May 10, 2023.
 */
 struct children_enclave_t
 {

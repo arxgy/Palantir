@@ -207,7 +207,7 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       *  which use memcpy directly instead of copy_from_user.
       *  This is because we allocate elffile by kmalloc for privileged create.
       * 
-      * by Ganxiang Yang @ May 11, 2023. 
+      * by Anonymous Author @ May 11, 2023. 
     */
 
     elf_file_name = (char *)kmalloc(ELF_FILE_LEN, GFP_KERNEL);
@@ -797,7 +797,7 @@ int penglai_enclave_resume(struct file * filep, unsigned long args)
 }
 
 /** Provide our inspect function here. 
- * by Ganxiang Yang @ May 16, 2023.
+ * by Anonymous Author @ May 16, 2023.
 */
 // int penglai_enclave_ocall_inspect(unsigned long args)
 // {

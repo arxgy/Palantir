@@ -1,7 +1,7 @@
 /**
  * This program is a Privileged Enclave demo in Interface-level Evaluation.
  * It will create 2^n enclaves and calculate time cost.
- *  by Ganxiang Yang @ May 28, 2023.
+ *  by Anonymous Author @ May 28, 2023.
 */
 #include "eapp.h"
 #include "print.h"

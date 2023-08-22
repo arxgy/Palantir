@@ -1,7 +1,7 @@
 /**
  * This program is a Privileged Enclave demo in Standard Evaluation.
  * It will load rv8 testbench cases as a Normal Enclave and execute it.
- *  by Ganxiang Yang @ May 27, 2023.
+ *  by Anonymous Author @ May 27, 2023.
 */
 #include "eapp.h"
 #include "print.h"
