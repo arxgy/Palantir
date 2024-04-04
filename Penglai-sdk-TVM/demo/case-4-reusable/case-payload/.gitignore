@@ -1,4 +1,4 @@
-case-attestation
+case-payload
 *.dump
 *.o
 *.S
