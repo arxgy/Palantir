@@ -13,5 +13,5 @@ copy-files/*
 *.dump
 .history/*
 .history
-.vscode
+.vscode/
 *.json

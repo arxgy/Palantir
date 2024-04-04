@@ -12,6 +12,9 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-2-sharing/case-sharer/case-sharer \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-3-migration/case-migratee/case-migratee \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-3-migration/case-migrator/case-migrator \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-attestation/case-attestation \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-reset/case-reset \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-payload/case-payload \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/aes/aes \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/dhrystone/dhrystone \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/norx/norx \

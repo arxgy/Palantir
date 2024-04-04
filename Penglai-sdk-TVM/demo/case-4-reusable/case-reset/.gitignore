@@ -1,0 +1,4 @@
+case-reset
+*.dump
+*.o
+*.S

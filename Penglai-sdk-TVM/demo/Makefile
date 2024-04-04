@@ -17,6 +17,7 @@ all:
 	make -C case-1-introspection
 	make -C case-2-sharing
 	make -C case-3-migration
+	make -C case-4-reusable
 
 	#CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  mphost_normal
 
@@ -39,4 +40,5 @@ clean:
 	make -C case-1-introspection clean
 	make -C case-2-sharing clean
 	make -C case-3-migration clean
+	make -C case-4-reusable clean
 
