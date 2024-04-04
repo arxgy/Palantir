@@ -2549,12 +2549,16 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
   sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
   
   tgt_enclave = __get_enclave(run_args.run_eid);
-  /* todo. add run-enclave state check here. */
-  if (!tgt_enclave || tgt_enclave->parent_eid != enclave->eid)
+  if (!tgt_enclave)
   {
     sbi_bug("M mode: privil_run_after_resume: enclave%d is not valid\n", run_args.run_eid);
-    ret = -1UL;
-    // goto out;
+    ret = -1UL; goto out;
+  }
+  if (tgt_enclave->state > FRESH && tgt_enclave->parent_eid != enclave->eid)
+  {
+    sbi_bug("M mode: privil_run_after_resume: [%d] will returns to an unmatched parent [%d]. Expected: [%ld]", 
+                     run_args.run_eid, enclave->eid, tgt_enclave->parent_eid);
+    ret = -1UL; goto out;
   }
 
   void *reason_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.reason_ptr));
@@ -2657,6 +2661,7 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
       cur_vma = cur_vma->vm_next;  
     }
   }
+out:
   return ret;
 }
 
@@ -2681,11 +2686,16 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
 
   tgt_enclave = __get_enclave(run_args.run_eid);
-  /* todo. add resume-enclave state check here. */
-  if (!tgt_enclave || tgt_enclave->parent_eid != enclave->eid)
+  if (!tgt_enclave)
   {
     sbi_bug("M mode: privil_run_after_resume: enclave%d is not valid\n", run_args.run_eid);
-    ret = -1UL;
+    ret = -1UL; goto out;
+  }
+  if (tgt_enclave->state > FRESH && tgt_enclave->parent_eid != enclave->eid)
+  {
+    sbi_bug("M mode: privil_run_after_resume: [%d] will returns to an unmatched parent [%d]. Expected: [%ld]", 
+                     run_args.run_eid, enclave->eid, tgt_enclave->parent_eid);
+    ret = -1UL; goto out;
   }
 
   void *reason_ptr = va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(run_args.reason_ptr));
@@ -2783,6 +2793,7 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
       cur_vma = cur_vma->vm_next;  
     }
   }
+out:
   return ret;
 }
 
