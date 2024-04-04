@@ -1516,6 +1516,16 @@ void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsign
   
 }
 
+int distant_parent(uintptr_t child_eid, uintptr_t parent_eid)
+{
+  if (child_eid == parent_eid) 
+    return 0;
+  struct enclave_t *child = __get_enclave(child_eid);
+  if (!child || child->state <= FRESH) 
+    return -1;
+  return distant_parent(child->parent_eid, parent_eid);
+}
+
 /**************************************************************/
 /*                   called by host                           */
 /**************************************************************/
@@ -3164,20 +3174,16 @@ uintptr_t inspect_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t dump_c
   struct vm_area_struct *mmap_vma = NULL;
   acquire_enclave_metadata_lock();
 
-  tgt_enclave = __get_enclave(tgt_eid);
-  if (!tgt_enclave || tgt_enclave->state < FRESH || 
-       tgt_enclave->parent_eid != src_eid || 
-       tgt_enclave->type != NORMAL_ENCLAVE)
+  /* parent validity check */
+  if (distant_parent(tgt_eid, src_eid))
   {
-    sbi_bug("M mode: inspect_enclave: target enclave%lu can not be accessed\n", tgt_eid);
+    sbi_bug("M mode: inspect_enclave: inspect permission denied.\n");
     retval = -1UL;
     goto inspect_enclave_out;
   }
-
-  /* give a stronger check in future */
+  tgt_enclave = __get_enclave(tgt_eid);
   src_enclave = __get_enclave(src_eid);
   if (!src_enclave || src_enclave->state != OCALLING || 
-       src_enclave->parent_eid != NULL_EID || 
        src_enclave->type != PRIVIL_ENCLAVE)
   {
     sbi_bug("M mode: inspect_enclave: source enclave%lu can not be accessed\n", src_eid);
@@ -3301,7 +3307,7 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
   acquire_enclave_metadata_lock();
 
   tgt_enclave = __get_enclave(tgt_eid);
-  if (!tgt_enclave || tgt_enclave->state < FRESH || 
+  if (!tgt_enclave || tgt_enclave->state <= FRESH || 
        tgt_enclave->parent_eid != src_eid || 
        tgt_enclave->type != NORMAL_ENCLAVE)
   {

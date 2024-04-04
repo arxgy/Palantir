@@ -264,6 +264,7 @@ struct enclave_t* __alloc_enclave();
 int __free_enclave(int eid);
 void free_enclave_memory(struct pm_area_struct *pma);
 
+int distant_parent(uintptr_t child_eid, uintptr_t parent_eid);
 // Called by host
 // Enclave-related operations
 uintptr_t create_enclave(enclave_create_param_t create_args);
