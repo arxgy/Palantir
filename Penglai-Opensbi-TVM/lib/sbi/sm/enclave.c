@@ -1521,7 +1521,7 @@ int distant_parent(uintptr_t child_eid, uintptr_t parent_eid)
   if (child_eid == parent_eid) 
     return 0;
   struct enclave_t *child = __get_enclave(child_eid);
-  if (!child || child->state <= FRESH) 
+  if (!child || child->state < FRESH) 
     return -1;
   return distant_parent(child->parent_eid, parent_eid);
 }
