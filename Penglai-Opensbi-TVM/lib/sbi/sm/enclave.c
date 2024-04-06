@@ -3308,8 +3308,7 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
 
   tgt_enclave = __get_enclave(tgt_eid);
   if (!tgt_enclave || tgt_enclave->state <= FRESH || 
-       tgt_enclave->parent_eid != src_eid || 
-       tgt_enclave->type != NORMAL_ENCLAVE)
+       tgt_enclave->parent_eid != src_eid)
   {
     sbi_bug("M mode: response_enclave: target enclave%lu can not be accessed\n", tgt_eid);
     retval = -1UL;
@@ -3317,7 +3316,6 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
   }
   src_enclave = __get_enclave(src_eid);
   if (!src_enclave || src_enclave->state != OCALLING || 
-       src_enclave->parent_eid != NULL_EID || 
        src_enclave->type != PRIVIL_ENCLAVE)
   {
     sbi_bug("M mode: response_enclave: source enclave%lu can not be accessed\n", src_eid);
