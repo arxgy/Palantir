@@ -73,7 +73,8 @@ int penglai_enclave_load_program(enclave_mem_t* enclave_mem, vaddr_t elf_prog_in
   return 0;
 }
 
-int privil_enclave_loadelf(enclave_mem_t*enclave_mem, void* elf_ptr, unsigned long size, vaddr_t * elf_entry_point, enclave_type_t type)
+int privil_enclave_loadelf(enclave_mem_t*enclave_mem, void* elf_ptr, unsigned long size, vaddr_t * elf_entry_point, enclave_type_t type, 
+                           elf_data_records_t** data_records_addr, elf_bss_records_t** bss_records_addr)
 {
   /* kernel version of enclave loadelf */
   struct elfhdr elf_hdr;
@@ -104,6 +105,46 @@ int privil_enclave_loadelf(enclave_mem_t*enclave_mem, void* elf_ptr, unsigned lo
       {
         penglai_eprintf("penglai_enclave_loadelf: penglai enclave load NOBITS section failed\n");
         return -1;
+      }
+
+      // store the .bss section
+      if (elf_sect_hdr.sh_flags == (SHF_WRITE | SHF_ALLOC))
+      {
+        elf_bss_records_t *bss_record_head = *bss_records_addr;
+        if (bss_record_head && (bss_record_head->sect_vaddr + bss_record_head->sect_size == elf_sect_addr)) 
+        {
+          // continuous section, merge
+          bss_record_head->sect_size += elf_sect_size;
+        } 
+        else 
+        {
+          // head appending
+          elf_bss_records_t *bss_record_new = kmalloc(sizeof(elf_bss_records_t), GFP_KERNEL);
+          bss_record_new->sect_vaddr = elf_sect_addr;
+          bss_record_new->sect_size = elf_sect_size;
+          bss_record_new->next_record = *bss_records_addr;
+          *bss_records_addr = bss_record_new;
+        }
+      }
+    } 
+    else if (elf_sect_hdr.sh_type == SHT_PROGBITS) 
+    {
+      vaddr_t elf_sect_addr = elf_sect_hdr.sh_addr;
+      int elf_sect_size = elf_sect_hdr.sh_size;
+      // store the .data section
+      if (elf_sect_hdr.sh_flags == (SHF_WRITE | SHF_ALLOC))
+      {
+        // head appending
+        elf_data_records_t *data_record_new = kmalloc(sizeof(elf_data_records_t), GFP_KERNEL);
+        data_record_new->sect_vaddr = elf_sect_addr;
+        data_record_new->sect_size = elf_sect_size;
+        data_record_new->next_record = *data_records_addr;
+        void *contents = kmalloc(elf_sect_size, GFP_KERNEL);
+        memcpy(contents, (void *)((vaddr_t) elf_ptr + elf_sect_hdr.sh_offset), elf_sect_size);
+        data_record_new->sect_content = __pa(contents);
+        penglai_printf("contents(va): %lx\n", contents);
+        penglai_printf("contents(pa): %lx\n", __pa(contents));
+        *data_records_addr = data_record_new;
       }
     }
 
@@ -311,7 +352,8 @@ int penglai_enclave_elfmemsize(void* __user elf_ptr,   int* size)
   return 0;
 } 
 
-int privil_enclave_eapp_loading(enclave_mem_t* enclave_mem,  void* elf_ptr, unsigned long size, vaddr_t * elf_entry_point, vaddr_t stack_ptr, int stack_size, enclave_type_t type, unsigned long migrate_stack_pages)
+int privil_enclave_eapp_loading(enclave_mem_t* enclave_mem,  void* elf_ptr, unsigned long size, vaddr_t * elf_entry_point, vaddr_t stack_ptr, int stack_size, 
+                                enclave_type_t type, unsigned long migrate_stack_pages, elf_data_records_t** data_records_addr, elf_bss_records_t** bss_records_addr)
 {
   vaddr_t addr;
 
@@ -320,8 +362,7 @@ int privil_enclave_eapp_loading(enclave_mem_t* enclave_mem,  void* elf_ptr, unsi
   {
     enclave_alloc_page(enclave_mem, addr, ENCLAVE_STACK_PAGE);
   }
-  // Load the enclave code
-  if(privil_enclave_loadelf(enclave_mem, elf_ptr, size, elf_entry_point, type) < 0)
+  if(privil_enclave_loadelf(enclave_mem, elf_ptr, size, elf_entry_point, type, data_records_addr, bss_records_addr) < 0)
   {
     penglai_eprintf("privil_enclave_eapp_loading: penglai enclave loadelf failed\n");
     return -1;

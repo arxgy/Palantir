@@ -30,7 +30,8 @@ int create_sbi_param(enclave_t* enclave, struct penglai_enclave_sbi_param * encl
     unsigned long paddr, unsigned long size, unsigned long entry_point,
     unsigned long free_mem,
     unsigned long shm_vaddr, unsigned long shm_size, 
-    unsigned long caller_eid, unsigned long migrate_arg)
+    unsigned long caller_eid, unsigned long migrate_arg, 
+    unsigned long data_record_vaddr, unsigned long bss_record_vaddr)
 { 
   enclave_sbi_param->create_caller_eid = caller_eid;
   enclave_sbi_param->eid_ptr = (unsigned int* )__pa(&enclave->eid);
@@ -58,6 +59,9 @@ int create_sbi_param(enclave_t* enclave, struct penglai_enclave_sbi_param * encl
   enclave_sbi_param->type = enclave->type;
   memcpy(enclave_sbi_param->name, enclave->name, NAME_LEN);
   enclave_sbi_param->migrate_arg = migrate_arg;
+  // paddr == 0 indicates no records
+  enclave_sbi_param->data_record_paddr = data_record_vaddr ? __pa(data_record_vaddr) : 0;
+  enclave_sbi_param->bss_record_paddr = bss_record_vaddr ? __pa(bss_record_vaddr) : 0;
   return 0;
 }
 
@@ -166,7 +170,9 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
   int ret, total_pages, elf_size = 0, stack_size = enclave_param->stack_size;
   unsigned long free_mem = 0, elf_entry = 0, shm_vaddr = 0, shm_size = 0, order = 0;
   loff_t pos = 0, elf_file_size = 0;
-
+  // load the .data and .bss section vma and content (if have)
+  elf_data_records_t* data_records = NULL, *iter_data = NULL;
+  elf_bss_records_t* bss_records = NULL, *iter_bss = NULL;
 
   if (filep != NULL) 
   {
@@ -266,7 +272,8 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
       goto destroy_enclave;
     }
     if (privil_enclave_eapp_loading(enclave->enclave_mem, elf_file_buf, elf_size, 
-        &elf_entry, STACK_POINT, stack_size, enclave->type, enclave_param->migrate_stack_pages))
+        &elf_entry, STACK_POINT, stack_size, enclave->type, enclave_param->migrate_stack_pages, 
+        &data_records, &bss_records))
     {
       penglai_eprintf("privil_enclave_eapp_loading is failed\n");;
       goto destroy_enclave;
@@ -286,11 +293,14 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
   shm_vaddr = get_shm(enclave_param->shmid, enclave_param->shm_offset, enclave_param->shm_size);
   shm_size = enclave_param->shm_size;
 
+  penglai_printf("0 va to pa: %lx\n", __pa(0));
+  penglai_printf("0 pa to va: %lx\n", __va(0));
+
   create_sbi_param(enclave, &enclave_sbi_param,
       (unsigned long)(enclave->enclave_mem->paddr),
       enclave->enclave_mem->size, elf_entry, __pa(free_mem),
-      shm_vaddr, shm_size, enclave_param->eid, enclave_param->migrate_arg);
-
+      shm_vaddr, shm_size, enclave_param->eid, enclave_param->migrate_arg, 
+      (unsigned long) data_records, (unsigned long) bss_records);
   if(enclave_sbi_param.type == SERVER_ENCLAVE)
     ret = SBI_PENGLAI_1(SBI_SM_CREATE_SERVER_ENCLAVE, __pa(&enclave_sbi_param));
   else if(enclave_sbi_param.type == SHADOW_ENCLAVE)
@@ -321,7 +331,23 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
     kfree(elf_file_name);
   if (elf_file_buf)
     kfree(elf_file_buf);
-  
+
+  iter_data = data_records;
+  iter_bss = bss_records;
+  while (iter_data)
+  {
+    elf_data_records_t *cur = iter_data;
+    iter_data = cur->next_record;
+    kfree(__va(cur->sect_content));
+    kfree(cur);
+  }
+  while (iter_bss)
+  {
+    elf_bss_records_t *cur = iter_bss;
+    iter_bss = cur->next_record;
+    kfree(cur);
+  }
+
   return ret;
 
 destroy_enclave:
@@ -335,6 +361,22 @@ free_variable:
     kfree(elf_file_name);
   if (elf_file_buf)
     kfree(elf_file_buf);
+
+  iter_data = data_records;
+  iter_bss = bss_records;
+  while (iter_data)
+  {
+    elf_data_records_t *cur = iter_data;
+    iter_data = cur->next_record;
+    kfree(__va(cur->sect_content));
+    kfree(cur);
+  }
+  while (iter_bss)
+  {
+    elf_bss_records_t *cur = iter_bss;
+    iter_bss = cur->next_record;
+    kfree(cur);
+  }
   return -EFAULT;
 }
 

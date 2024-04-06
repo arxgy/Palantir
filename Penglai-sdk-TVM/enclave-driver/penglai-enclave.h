@@ -83,6 +83,7 @@ extern long SBI_PENGLAI_ECALL_5(int fid, unsigned long arg0, unsigned long arg1,
 #define NE_REQUEST_INSPECT                10
 #define NE_REQUEST_SHARE_PAGE             11
 #define NE_REQUEST_ACQUIRE_PAGE           12
+#define NE_REQUEST_REWIND									13
 
 #define NE_REQUEST_DEBUG_PRINT            20
 

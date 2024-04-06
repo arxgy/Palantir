@@ -108,7 +108,29 @@ struct penglai_enclave_sbi_param
   unsigned long *ecall_arg3;
   unsigned long *retval;
   unsigned long migrate_arg;
+  unsigned long data_record_paddr;
+  unsigned long bss_record_paddr;
 };
+
+#ifndef _PENGLAI_ENCLAVE_RECORDS
+#define _PENGLAI_ENCLAVE_RECORDS
+// todo: support merge (continuous address)
+typedef struct penglai_data_records
+{
+  unsigned long sect_vaddr;
+  unsigned long sect_size;
+  unsigned long sect_content; // pa addr to the section contents.
+  unsigned long next_record;
+} elf_data_records_t;
+
+// todo: support merge (continuous address)
+typedef struct penglai_bss_records
+{
+  unsigned long sect_vaddr;
+  unsigned long sect_size;
+  unsigned long next_record;
+} elf_bss_records_t;
+#endif
 
 typedef struct penglai_enclave_run_sbi_param
 {
