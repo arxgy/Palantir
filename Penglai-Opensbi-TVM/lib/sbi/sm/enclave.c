@@ -1370,8 +1370,6 @@ int snapshot_data_section(unsigned long data_record_paddr, struct enclave_t *enc
         sbi_bug("M mode: [snapshot_data_section] copy_from_host failed.\n");
         return 0;
       }
-      
-      unsigned long *global_ul_ptr = (unsigned long *)(cur_region->data + 8);
       len++;
       cur_record_paddr = cur_record.next_record_pa;
       if (!cur_record.next_record)  // reach the last block of record
