@@ -108,6 +108,8 @@ typedef struct enclave_create_param
   unsigned long *ecall_arg3;
   unsigned long *retval;
   unsigned long migrate_arg;
+  unsigned long data_record_paddr;
+  unsigned long bss_record_paddr;
 } enclave_create_param_t;
 
 typedef struct enclave_run_param
@@ -178,6 +180,24 @@ struct init_enclave_create_param_t
   unsigned long entry_point;
   struct region_t regions[DEFAULT_EAPP_REGIONS_NUM];
 };
+
+typedef struct penglai_data_records
+{
+  unsigned long sect_vaddr;
+  unsigned long sect_size;
+  unsigned long sect_content; // pa addr to the section contents.
+  unsigned long next_record;  // pa addr to next record
+  unsigned long next_record_pa;	// pa addr to next
+} elf_data_records_t;
+
+// todo: support merge (continuous address)
+typedef struct penglai_bss_records
+{
+  unsigned long sect_size;
+  unsigned long sect_vaddr;
+  unsigned long next_record; // va addr to next record
+  unsigned long next_record_pa;	// pa addr to next record
+} elf_bss_records_t;
 
 #endif /* __riscv_xlen == 64 */
 

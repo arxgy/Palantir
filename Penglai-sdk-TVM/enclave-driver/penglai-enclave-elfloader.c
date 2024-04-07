@@ -123,6 +123,7 @@ int privil_enclave_loadelf(enclave_mem_t*enclave_mem, void* elf_ptr, unsigned lo
           bss_record_new->sect_vaddr = elf_sect_addr;
           bss_record_new->sect_size = elf_sect_size;
           bss_record_new->next_record = *bss_records_addr;
+          bss_record_new->next_record_pa = __pa(*bss_records_addr);
           *bss_records_addr = bss_record_new;
         }
       }
@@ -139,11 +140,10 @@ int privil_enclave_loadelf(enclave_mem_t*enclave_mem, void* elf_ptr, unsigned lo
         data_record_new->sect_vaddr = elf_sect_addr;
         data_record_new->sect_size = elf_sect_size;
         data_record_new->next_record = *data_records_addr;
+        data_record_new->next_record_pa = __pa(*data_records_addr);
         void *contents = kmalloc(elf_sect_size, GFP_KERNEL);
         memcpy(contents, (void *)((vaddr_t) elf_ptr + elf_sect_hdr.sh_offset), elf_sect_size);
         data_record_new->sect_content = __pa(contents);
-        penglai_printf("contents(va): %lx\n", contents);
-        penglai_printf("contents(pa): %lx\n", __pa(contents));
         *data_records_addr = data_record_new;
       }
     }

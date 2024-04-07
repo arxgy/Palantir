@@ -14,6 +14,7 @@
 #include "sm/ipi.h"
 #include "sm/attest.h"
 #include "sm/key.h"
+#include "sm/enclave_args.h"
 #include <sbi/sbi_tlb.h>
 #include <sm/enclave_error.h>
 
@@ -1330,6 +1331,99 @@ void initilze_va_struct(struct pm_area_struct* pma, struct vm_area_struct* vma, 
   enclave->sec_shm_vma = NULL;
 }
 
+// return value < 0 indicates having no enough memory region, return back to driver and extend.
+int snapshot_data_section(unsigned long data_record_paddr, struct enclave_t *enclave)
+{
+  if (!data_record_paddr) return 0;
+
+  uintptr_t retval = 0;
+  struct link_mem_t *cur;
+  elf_data_records_t cur_record;
+  uintptr_t cur_record_paddr = data_record_paddr;
+  data_region_t *cur_region;
+  int i = 0, len = 0;
+  unsigned long resp_size = 0;
+
+  enclave->data_record_head = init_mem_link(DATA_SECTION_METADATA_REGION_SIZE, sizeof(data_region_t));
+  if (!enclave->data_record_head) return -1;
+
+  for (cur = enclave->data_record_head ; cur != NULL ; cur = cur->next_link_mem)
+  {
+    for (i = 0 ; i < (cur->slab_num) ; i++)
+    {
+      cur_region = (data_region_t *)(cur->addr) + i;
+      retval = copy_from_host(&cur_record, (elf_data_records_t *)cur_record_paddr, sizeof(elf_data_records_t));
+      if (retval != 0)
+      {
+        sbi_bug("M mode: [snapshot_data_section] copy_from_host failed.\n");
+        return 0;
+      }
+      cur_region->vaddr = cur_record.sect_vaddr;
+      cur_region->size = cur_record.sect_size;
+      cur_region->data = (unsigned long) mm_alloc(cur_region->size, &resp_size);
+      if (!cur_region->data || resp_size < cur_region->size) 
+        return -1;
+
+      retval = copy_from_host((void *)(cur_region->data), (void *)(cur_record.sect_content), cur_region->size);
+      if (retval != 0)
+      {
+        sbi_bug("M mode: [snapshot_data_section] copy_from_host failed.\n");
+        return 0;
+      }
+      
+      unsigned long *global_ul_ptr = (unsigned long *)(cur_region->data + 8);
+      len++;
+      cur_record_paddr = cur_record.next_record_pa;
+      if (!cur_record.next_record)  // reach the last block of record
+        goto snapshot_end;
+    }
+  }
+  /* TODO: make the record mem link extensible */
+snapshot_end:
+  enclave->data_record_len = len;
+  return 0;
+}
+
+int snapshot_bss_section(unsigned long bss_record_paddr, struct enclave_t *enclave)
+{
+  if (!bss_record_paddr) return 0;
+  
+  uintptr_t retval = 0;
+  struct link_mem_t *cur;
+  elf_bss_records_t cur_record;
+  uintptr_t cur_record_paddr = bss_record_paddr;
+  bss_region_t *cur_region;
+  int i = 0, len = 0;
+  
+  enclave->bss_record_head = init_mem_link(BSS_SECTION_METADATA_REGION_SIZE, sizeof(bss_region_t));
+  if (!enclave->bss_record_head) return -1;
+
+  for (cur = enclave->bss_record_head ; cur != NULL ; cur = cur->next_link_mem)
+  {
+    for (i = 0 ; i < (cur->slab_num) ; i++)
+    {
+      cur_region = (bss_region_t *)(cur->addr) + i;
+      retval = copy_from_host(&cur_record, (elf_bss_records_t *)cur_record_paddr, sizeof(elf_bss_records_t));
+      if (retval != 0)
+      {
+        sbi_bug("M mode: [snapshot_bss_section] copy_from_host failed.\n");
+        return 0;
+      }
+      cur_region->vaddr = cur_record.sect_vaddr;
+      cur_region->size = cur_record.sect_size;
+      cur_record_paddr = cur_record.next_record_pa;
+      len++;
+      if (!cur_record.next_record)  // reach the last block of record
+        goto snapshot_end;
+    }
+  }
+
+  /* TODO: make the record mem link extensible */
+snapshot_end:
+  enclave->bss_record_len = len;
+  return 0;
+}
+
 void state_migration(struct enclave_t *enclave, struct enclave_t *parent, unsigned long migrate_arg)
 {
   if (!parent || !migrate_arg)
@@ -1648,6 +1742,23 @@ uintptr_t create_enclave(enclave_create_param_t create_args)
 
   initilze_va_struct(pma, vma, enclave);
 
+  // snapshot the global variables in enclave
+  // enclave->bss_records = NULL;
+  // enclave->data_records = NULL;
+  // todo: alloc bss/data_records like __alloc_children
+  acquire_enclave_metadata_lock();
+  if (snapshot_bss_section(create_args.bss_record_paddr, enclave) < 0)
+  {
+    ret = ENCLAVE_NO_MEM;
+    goto release_and_fail;
+  }
+  if (snapshot_data_section(create_args.data_record_paddr, enclave) < 0)
+  {
+    ret = ENCLAVE_NO_MEM;
+    goto release_and_fail;
+  }
+  release_enclave_metadata_lock();
+
   enclave->free_pages = NULL;
   enclave->free_pages_num = 0;
   free_mem = create_args.paddr + create_args.size - RISCV_PGSIZE;
@@ -1707,6 +1818,12 @@ failed:
   }
   if(enclave)
   {
+    // use a function and have more sanity check
+    if (enclave->parent_eid != NULL_EID)
+    {
+      struct enclave_t *parent = __get_enclave(enclave->parent_eid);
+      __free_children(enclave->eid, parent->children_metadata_head);
+    }
     __free_enclave(enclave->eid);
   }
   return ret;
@@ -2670,6 +2787,9 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
         (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
       cur_vma = cur_vma->vm_next;  
     }
+  } else if (return_reason == NE_REQUEST_REWIND) {
+    sbi_printf("[sm] Now trying to rewind global variables...\n");
+    
   }
 out:
   return ret;
@@ -2802,6 +2922,9 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
         (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
       cur_vma = cur_vma->vm_next;  
     }
+  } else if (return_reason == NE_REQUEST_REWIND) {
+    sbi_printf("[sm] Now trying to rewind global variables...\n");
+
   }
 out:
   return ret;

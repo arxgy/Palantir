@@ -293,8 +293,6 @@ int penglai_enclave_create(struct file *filep, unsigned long args)
   shm_vaddr = get_shm(enclave_param->shmid, enclave_param->shm_offset, enclave_param->shm_size);
   shm_size = enclave_param->shm_size;
 
-  penglai_printf("0 va to pa: %lx\n", __pa(0));
-  penglai_printf("0 pa to va: %lx\n", __va(0));
 
   create_sbi_param(enclave, &enclave_sbi_param,
       (unsigned long)(enclave->enclave_mem->paddr),

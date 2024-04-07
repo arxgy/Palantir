@@ -14,6 +14,7 @@
 
 
 #define ENCLAVES_PER_METADATA_REGION 100
+#define ENCLAVES_PER_GLOBAL_VAR_REGION 10
 #define ENCLAVE_METADATA_REGION_SIZE ((sizeof(struct enclave_t)) * ENCLAVES_PER_METADATA_REGION)
 #define SHADOW_ENCLAVE_METADATA_REGION_SIZE ((sizeof(struct shadow_enclave_t)) * ENCLAVES_PER_METADATA_REGION)
 #define RELAY_PAGE_NUM 10
@@ -24,6 +25,8 @@
 #define DEFAULT_STACK_PAGES 16
 
 #define CHILDREN_METADATA_REGION_SIZE  ((sizeof(struct children_enclave_t)) * ENCLAVES_PER_METADATA_REGION)
+#define BSS_SECTION_METADATA_REGION_SIZE  ((sizeof(bss_region_t)) * ENCLAVES_PER_GLOBAL_VAR_REGION)
+#define DATA_SECTION_METADATA_REGION_SIZE  ((sizeof(data_region_t)) * ENCLAVES_PER_GLOBAL_VAR_REGION)
 
 //FIXME: need to determine the suitable threshold depending on the performance.
 #define ENCLAVE_SELF_HASH_THRESHOLD  (RISCV_PGSIZE)
@@ -56,6 +59,10 @@
   enclave->parent_eid = ((struct_type)create_args)->create_caller_eid; \
   enclave->children_metadata_head = NULL; \
   enclave->children_metadata_tail = NULL; \
+  enclave->data_record_head = NULL; \
+  enclave->bss_record_head = NULL; \
+  enclave->data_record_len = 0; \
+  enclave->bss_record_len = 0; \
 } while(0)
 
 
@@ -83,6 +90,10 @@
   enclave->parent_eid = ((struct_type)create_args)->create_caller_eid; \
   enclave->children_metadata_head = NULL; \
   enclave->children_metadata_tail = NULL; \
+  enclave->data_record_head = NULL; \
+  enclave->bss_record_head = NULL; \
+  enclave->data_record_len = 0; \
+  enclave->bss_record_len = 0; \
 } while(0)
 
 struct link_mem_t
@@ -194,10 +205,15 @@ struct enclave_t
   unsigned int cur_callee_eid;
   unsigned char hash[HASH_SIZE];
   char enclave_name[NAME_LEN];
-  /* add our metadata here. */
+  /* parent info */
   unsigned long parent_eid;
   struct link_mem_t *children_metadata_head;
   struct link_mem_t *children_metadata_tail;
+  /* global variable info */
+  struct link_mem_t *data_record_head;
+  unsigned long data_record_len;
+  struct link_mem_t *bss_record_head;
+  unsigned long bss_record_len;
 };
 
 /* 
@@ -211,6 +227,38 @@ struct children_enclave_t
   enclave_state_t state;
   unsigned int eid;
 };
+
+typedef struct penglai_data_records
+{
+  unsigned long sect_vaddr;
+  unsigned long sect_size;
+  unsigned long sect_content; // pa addr to the section contents.
+  unsigned long next_record;  // pa addr to next record
+  unsigned long next_record_pa;	// pa addr to next
+} elf_data_records_t;
+
+// todo: support merge (continuous address)
+typedef struct penglai_bss_records
+{
+  unsigned long sect_size;
+  unsigned long sect_vaddr;
+  unsigned long next_record; // va addr to next record
+  unsigned long next_record_pa;	// pa addr to next record
+} elf_bss_records_t;
+
+typedef struct bss_region
+{
+  unsigned long vaddr;
+  unsigned long size;
+} bss_region_t;
+
+typedef struct data_region
+{
+  unsigned long vaddr;
+  unsigned long data; // paddr of data contents
+  unsigned long size;
+} data_region_t;
+
 
 
 struct shadow_enclave_t

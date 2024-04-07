@@ -23,15 +23,17 @@ typedef struct penglai_data_records
   unsigned long sect_vaddr;
   unsigned long sect_size;
   unsigned long sect_content; // pa addr to the section contents.
-  unsigned long next_record;
+  unsigned long next_record;	// va addr to next
+  unsigned long next_record_pa;	// pa addr to next
 } elf_data_records_t;
 
 // todo: support merge (continuous address)
 typedef struct penglai_bss_records
 {
-  unsigned long sect_vaddr;
   unsigned long sect_size;
-  unsigned long next_record;
+  unsigned long sect_vaddr;
+  unsigned long next_record; // va addr to next record
+  unsigned long next_record_pa;	// pa addr to next record
 } elf_bss_records_t;
 #endif
 
