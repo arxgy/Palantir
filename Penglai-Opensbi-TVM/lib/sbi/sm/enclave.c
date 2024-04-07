@@ -2785,9 +2785,6 @@ uintptr_t privil_run_after_resume(struct enclave_t *enclave, uintptr_t return_re
         (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
       cur_vma = cur_vma->vm_next;  
     }
-  } else if (return_reason == NE_REQUEST_REWIND) {
-    sbi_printf("[sm] Now trying to rewind global variables...\n");
-    
   }
 out:
   return ret;
@@ -2811,6 +2808,12 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   int return_value_int = return_value;
   ocall_run_param_t run_args;
   struct enclave_t *tgt_enclave = NULL;
+  bss_region_t *cur_bss_region;
+  data_region_t *cur_data_region;
+  struct link_mem_t *cur_slab;
+  uintptr_t vaddr;
+  int i = 0, iter = 0, copy_size;
+
   sbi_memcpy(&run_args, (void *)(enclave->kbuffer), sizeof(ocall_run_param_t));
 
   tgt_enclave = __get_enclave(run_args.run_eid);
@@ -2876,6 +2879,78 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
     
     sbi_memcpy((void *)(&ocall_share_req), pe_share_pa, sizeof(ocall_request_share_t));
   }
+  else if (return_reason == NE_REQUEST_REWIND) 
+  {
+    sbi_printf("[sm] [privil_resume_after_resume] Now trying to rewind global variables...\n");
+    if (tgt_enclave->bss_record_len > 0)
+    {
+      iter = 0;
+      for (cur_slab = tgt_enclave->bss_record_head ; cur_slab != NULL ; cur_slab = cur_slab->next_link_mem)
+      {
+        for (i = 0 ; i < (cur_slab->slab_num) ; i++)
+        {
+          cur_bss_region = (bss_region_t *)(cur_slab->addr) + i;
+          
+          if ((cur_bss_region->vaddr & (PAGE_SIZE-1)) == 0)
+          {
+            // page-aligned
+
+          }
+          else 
+          {
+
+          }
+          // for (vaddr = cur_bss_region->vaddr ; vaddr < cur_bss_region->vaddr + cur_bss_region->size ; vaddr += RISCV_PGSIZE)
+          // {
+
+          // }
+          iter++;
+          if (iter == tgt_enclave->bss_record_len)
+            break;
+        }
+        if (iter == tgt_enclave->bss_record_len)
+            break;
+
+      }
+
+    }
+
+    if (tgt_enclave->data_record_len > 0)
+    {
+      iter = 0;
+      for (cur_slab = tgt_enclave->data_record_head ; cur_slab != NULL ; cur_slab = cur_slab->next_link_mem)
+      {
+        for (i = 0 ; i < (cur_slab->slab_num) ; i++)
+        {
+          cur_data_region = (data_region_t *)(cur_slab->addr) + i;
+          if ((cur_data_region->vaddr & (PAGE_SIZE-1)) == 0)
+          {
+            // page-aligned
+            for (vaddr = cur_data_region->vaddr ; vaddr < cur_data_region->vaddr + cur_data_region->size ; vaddr += PAGE_SIZE)
+            {
+              void *paddr = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)vaddr);
+              if (vaddr + PAGE_SIZE > cur_data_region->vaddr + cur_data_region->size)
+                copy_size = cur_data_region->size % PAGE_SIZE;
+              else 
+                copy_size = PAGE_SIZE;
+              sbi_memcpy(paddr, (void *) (cur_data_region->data + (vaddr - cur_data_region->vaddr)), copy_size);
+            }
+          }
+          else 
+          {
+
+          }
+          iter++;
+        if (iter == tgt_enclave->data_record_len)
+            break;
+        }
+        if (iter == tgt_enclave->data_record_len)
+            break;
+
+      }
+    }
+
+  }
   else if (return_reason == NE_REQUEST_DEBUG_PRINT)
   {
     return ret;
@@ -2920,9 +2995,6 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
         (void *)cur_vma, cur_vma->pma, cur_vma->va_start, cur_vma->va_end, (cur_vma->va_end - cur_vma->va_start));
       cur_vma = cur_vma->vm_next;  
     }
-  } else if (return_reason == NE_REQUEST_REWIND) {
-    sbi_printf("[sm] Now trying to rewind global variables...\n");
-
   }
 out:
   return ret;
