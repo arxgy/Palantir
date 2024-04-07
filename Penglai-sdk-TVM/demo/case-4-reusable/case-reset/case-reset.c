@@ -25,7 +25,7 @@ int execute(unsigned long * args)
 
   /* parameter preparation */
   create_param.elf_file_ptr = (unsigned long) &create_param;
-  create_param.encl_type = PRIVIL_ENCLAVE; /* nesting create */
+  create_param.encl_type = NORMAL_ENCLAVE; /* nesting create */
   create_param.stack_size = DEFAULT_STACK_SIZE;
   create_param.migrate_arg = 0;
   /* disable shm currently */
@@ -55,8 +55,9 @@ int execute(unsigned long * args)
   {
     eapp_print("eapp_attest_enclave failed: %d\n",retval);
   }
+  /* before run: snapshot (global variable, heap, stack) */
 
-  int iter = 0, sum = 0;
+  int iter = 0, sum = 0, requested = 0;
   char *hash = report.enclave.hash;
   for (iter = 0 ; iter < HASH_SIZE; iter++)
   {
@@ -93,7 +94,17 @@ int execute(unsigned long * args)
   unsigned loop = 0;
   while (retval == 0)
   {
-    loop++;
+    loop++;    
+    requested = 0;
+    switch (return_reason)
+    {
+      case NE_REQUEST_REWIND:
+        requested = 1;
+        eapp_print("What should I do?\n");
+        break;
+      default:
+        break;
+    }
     if (return_reason == RETURN_USER_EXIT_ENCL)
     {
       eapp_print("[pe] [Reset Module] eapp_run_enclave return_value: [%d]\n", return_value);
@@ -106,6 +117,9 @@ int execute(unsigned long * args)
       break;
     }
     run_param.resume_reason = return_reason;
+    if (requested) {
+      run_param.resume_reason = RETURN_USER_NE_REQUEST;
+    }
     retval = eapp_resume_enclave((unsigned long)(&run_param));
   }
 
