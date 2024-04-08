@@ -2433,32 +2433,70 @@ uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
     goto resume_from_req_out;
   }
 
-  if(enclave->state <= FRESH || enclave->host_ptbr != csr_read(CSR_SATP))
+  // resume a fresh enclave: 
+  if (enclave->state == FRESH)
   {
-    sbi_bug("M mode: resume_from_request: enclave%d cannot resume state %d\n", eid, enclave->state);
-    retval = -1UL;
-    goto resume_from_req_out;
+    uintptr_t encl_ptbr = enclave->thread_context.encl_ptbr;
+    // rewind the context
+    sbi_memset((void *)(&(enclave->thread_context)), 0, sizeof(struct thread_state_t));
+    enclave->thread_context.encl_ptbr = encl_ptbr;
+    
+    if(swap_from_host_to_enclave(regs, enclave) < 0)
+    {
+      sbi_bug("M mode: resume_from_request: enclave can not be rewind-run\n");
+      retval = -1UL;
+      goto resume_from_req_out;
+    }
+    csr_write(CSR_MEPC, (uintptr_t)(enclave->entry_point));
+    //enable timer interrupt
+    csr_read_set(CSR_MIE, MIP_MTIP);
+    csr_read_set(CSR_MIE, MIP_MSIP);
+
+    //set default stack
+    regs[2] = ENCLAVE_DEFAULT_STACK_BASE;
+
+    //pass parameters
+    if(enclave->shm_paddr)
+      regs[10] = ENCLAVE_DEFAULT_SHM_BASE;
+    else
+      regs[10] = 0;
+    retval = regs[10];
+    regs[11] = enclave->shm_size;
+    regs[12] = eapp_args;
+    if(enclave->mm_arg_paddr[0])
+      regs[13] = ENCLAVE_DEFAULT_MM_ARG_BASE;
+    else
+      regs[13] = 0;
+    tlb_remote_sfence();
   }
-
-  if(enclave->state != STOPPED)
+  else 
   {
-    sbi_bug("M mode: resume_from_request: enclave%d is not runnable\n", eid);
-    retval = -1UL;
-    goto resume_from_req_out;
-  }
+    if(enclave->state < FRESH || enclave->host_ptbr != csr_read(CSR_SATP))
+    {
+      sbi_bug("M mode: resume_from_request: enclave%d cannot resume state %d\n", eid, enclave->state);
+      retval = -1UL;
+      goto resume_from_req_out;
+    }
 
-  /* do response */
-
-  if(swap_from_host_to_enclave(regs, enclave) < 0)
-  {
-    sbi_bug("M mode: resume_from_request: enclave can not be resume\n");
-    retval = -1UL;
-    goto resume_from_req_out;
+    if(enclave->state != STOPPED)
+    {
+      sbi_bug("M mode: resume_from_request: enclave%d is not runnable\n", eid);
+      retval = -1UL;
+      goto resume_from_req_out;
+    }
+    /* do response */
+    if(swap_from_host_to_enclave(regs, enclave) < 0)
+    {
+      sbi_bug("M mode: resume_from_request: enclave can not be resume\n");
+      retval = -1UL;
+      goto resume_from_req_out;
+    }
   }
   enclave->state = RUNNING;
   // regs[10] will be set to retval when mcall_trap return, so we have to
   // set retval to be regs[10] here to succuessfully restore context
   retval = regs[10];
+
 resume_from_req_out:
   release_enclave_metadata_lock();
   return retval;
@@ -2808,7 +2846,7 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   int return_value_int = return_value;
   ocall_run_param_t run_args;
   struct enclave_t *tgt_enclave = NULL;
-  bss_region_t *cur_bss_region;
+  // bss_region_t *cur_bss_region;
   data_region_t *cur_data_region;
   struct link_mem_t *cur_slab;
   uintptr_t vaddr;
@@ -2881,40 +2919,70 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   }
   else if (return_reason == NE_REQUEST_REWIND) 
   {
-    sbi_printf("[sm] [privil_resume_after_resume] Now trying to rewind global variables...\n");
-    if (tgt_enclave->bss_record_len > 0)
-    {
-      iter = 0;
-      for (cur_slab = tgt_enclave->bss_record_head ; cur_slab != NULL ; cur_slab = cur_slab->next_link_mem)
-      {
-        for (i = 0 ; i < (cur_slab->slab_num) ; i++)
-        {
-          cur_bss_region = (bss_region_t *)(cur_slab->addr) + i;
+    tgt_enclave->state = FRESH;
+    /** reset the .bss section. 
+     *  WARNING: 
+     *  We must memset the .bss sections carefully.
+     *  We must bypass critical symbols (__libc, sbrk, etc) when zeroritizing.
+     *  We left it as our future work.
+     * by Anonymous Author @ Apr 8, 2023
+    */
+    // if (tgt_enclave->bss_record_len > 0)
+    // {
+    //   iter = 0;
+    //   for (cur_slab = tgt_enclave->bss_record_head ; cur_slab != NULL ; cur_slab = cur_slab->next_link_mem)
+    //   {
+    //     for (i = 0 ; i < (cur_slab->slab_num) ; i++)
+    //     {
+    //       cur_bss_region = (bss_region_t *)(cur_slab->addr) + i;
           
-          if ((cur_bss_region->vaddr & (PAGE_SIZE-1)) == 0)
-          {
-            // page-aligned
+    //       if ((cur_bss_region->vaddr & (PAGE_SIZE-1)) == 0)
+    //       {
+    //         // page-aligned
+    //         for (vaddr = cur_bss_region->vaddr ; vaddr < cur_bss_region->vaddr + cur_bss_region->size ; vaddr += PAGE_SIZE)
+    //         {
+    //           void *paddr = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *) vaddr);
+    //           if (vaddr + PAGE_SIZE > cur_bss_region->vaddr + cur_bss_region->size)
+    //             copy_size = cur_bss_region->size % PAGE_SIZE;
+    //           else 
+    //             copy_size = PAGE_SIZE;
+    //           sbi_memset((void *)paddr, 0, copy_size);
+    //         }
+    //       }
+    //       else 
+    //       {
 
-          }
-          else 
-          {
-
-          }
-          // for (vaddr = cur_bss_region->vaddr ; vaddr < cur_bss_region->vaddr + cur_bss_region->size ; vaddr += RISCV_PGSIZE)
-          // {
+    //       }
+    //       iter++;
+    //       if (iter == tgt_enclave->bss_record_len)
+    //         break;
+    //     }
+    //     if (iter == tgt_enclave->bss_record_len)
+    //         break;
+    //   }
 
           // }
-          iter++;
-          if (iter == tgt_enclave->bss_record_len)
-            break;
-        }
-        if (iter == tgt_enclave->bss_record_len)
-            break;
+          // }
+        //   iter++;
+        //   if (iter == tgt_enclave->bss_record_len)
+        //     break;
+        // }
+        // if (iter == tgt_enclave->bss_record_len)
+        //     break;
 
-      }
+    //   }
+    // // }
+    //       iter++;
+    //       if (iter == tgt_enclave->bss_record_len)
+    //         break;
+    //     }
+    //     if (iter == tgt_enclave->bss_record_len)
+    //         break;
 
-    }
+    //   }
 
+    /** reset the .data section. 
+    */
     if (tgt_enclave->data_record_len > 0)
     {
       iter = 0;
@@ -2938,7 +3006,9 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
           }
           else 
           {
-
+            ret = -1UL; 
+            sbi_bug(".data section not page-aligned!\n");
+            goto out;
           }
           iter++;
         if (iter == tgt_enclave->data_record_len)
@@ -3500,13 +3570,18 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
   acquire_enclave_metadata_lock();
 
   tgt_enclave = __get_enclave(tgt_eid);
-  if (!tgt_enclave || tgt_enclave->state <= FRESH || 
+  if (!tgt_enclave || tgt_enclave->state < FRESH || 
        tgt_enclave->parent_eid != src_eid)
   {
     sbi_bug("M mode: response_enclave: target enclave%lu can not be accessed\n", tgt_eid);
     retval = -1UL;
     goto response_enclave_out;
   }
+
+  // The Children is waiting for response, do nothing.
+  if (tgt_enclave->state == FRESH)
+    goto response_enclave_out;
+
   src_enclave = __get_enclave(src_eid);
   if (!src_enclave || src_enclave->state != OCALLING || 
        src_enclave->type != PRIVIL_ENCLAVE)
