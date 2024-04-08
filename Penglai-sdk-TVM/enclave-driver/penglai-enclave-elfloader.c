@@ -110,22 +110,12 @@ int privil_enclave_loadelf(enclave_mem_t*enclave_mem, void* elf_ptr, unsigned lo
       // store the .bss section
       if (elf_sect_hdr.sh_flags == (SHF_WRITE | SHF_ALLOC))
       {
-        elf_bss_records_t *bss_record_head = *bss_records_addr;
-        if (bss_record_head && (bss_record_head->sect_vaddr + bss_record_head->sect_size == elf_sect_addr)) 
-        {
-          // continuous section, merge
-          bss_record_head->sect_size += elf_sect_size;
-        } 
-        else 
-        {
-          // head appending
-          elf_bss_records_t *bss_record_new = kmalloc(sizeof(elf_bss_records_t), GFP_KERNEL);
-          bss_record_new->sect_vaddr = elf_sect_addr;
-          bss_record_new->sect_size = elf_sect_size;
-          bss_record_new->next_record = *bss_records_addr;
-          bss_record_new->next_record_pa = __pa(*bss_records_addr);
-          *bss_records_addr = bss_record_new;
-        }
+        elf_bss_records_t *bss_record_new = kmalloc(sizeof(elf_bss_records_t), GFP_KERNEL);
+        bss_record_new->sect_vaddr = elf_sect_addr;
+        bss_record_new->sect_size = elf_sect_size;
+        bss_record_new->next_record = *bss_records_addr;
+        bss_record_new->next_record_pa = __pa(*bss_records_addr);
+        *bss_records_addr = bss_record_new;
       }
     } 
     else if (elf_sect_hdr.sh_type == SHT_PROGBITS) 
