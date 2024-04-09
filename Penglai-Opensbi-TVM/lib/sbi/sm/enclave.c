@@ -2921,37 +2921,63 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   }
   else if (return_reason == NE_REQUEST_REWIND) 
   {
-    tgt_enclave->state = FRESH;
-    /** reset the heap */
     ocall_request_rewind_t *rewind_pa = (ocall_request_rewind_t *) va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->rewind_request));
     struct pm_area_struct *pma = NULL;
     struct vm_area_struct *vma = NULL;
-    vma = tgt_enclave->heap_vma;
+    // struct pm_area_struct *cur_pma = NULL;
     
-    while (vma)
-    {
-      struct pm_area_struct *cur_pma = vma->pma;
-      delete_pma(&(tgt_enclave->pma_list), cur_pma);
-      cur_pma->pm_next = pma;
-      pma = cur_pma;
-      unmap((uintptr_t *)(tgt_enclave->root_page_table), vma->va_start, vma->va_end);
-      tgt_enclave->heap_vma = vma->vm_next;
-      vma = vma->vm_next;
-    }
-    if (tgt_enclave->heap_vma)
-    {
-      sbi_bug("Uncleaned heap_vma: %lx\n", (unsigned long)(tgt_enclave->heap_vma));
-    }
-    if (pma)
-    {
-      free_enclave_memory(pma);
-    }
-    // tlb_remote_sfence();
+    /** mark enclave as FRESH */
+    tgt_enclave->state = FRESH;
+    /** reset the heap */
+    // vma = tgt_enclave->heap_vma;
+    // while (vma)
+    // {
+    //   cur_pma = vma->pma;
+    //   delete_pma(&(tgt_enclave->pma_list), cur_pma);
+    //   cur_pma->pm_next = pma;
+    //   pma = cur_pma;
+    //   unmap((uintptr_t *)(tgt_enclave->root_page_table), vma->va_start, vma->va_end);
+    //   tgt_enclave->heap_vma = vma->vm_next;
+    //   vma = vma->vm_next;
+    // }
+    // if (tgt_enclave->heap_vma)
+    // {
+    //   sbi_bug("Uncleaned heap_vma: %lx\n", (unsigned long)(tgt_enclave->heap_vma));
+    // }
+    // if (pma)
+    // {
+    //   free_enclave_memory(pma);
+    // }
     /** TODO: we do not set back the _heap_top here, because we didn't rewind the musl lib.
      *        (left as our future work)
     */
     // tgt_enclave->_heap_top = ENCLAVE_DEFAULT_HEAP_BASE;
     rewind_pa->pma = (unsigned long)(pma);
+    
+    /** reset the stack */
+    vma = tgt_enclave->stack_vma;
+    // cur_pma = vma->pma;
+    while (vma)
+    {
+      // cur_pma = vma->pma;
+      copy_size = vma->va_end - vma->va_start;
+      if ((vma->va_start & (RISCV_PGSIZE-1)) != 0) 
+      {
+        sbi_bug("[NE_REQUEST_REWIND]: Stack vma not aligned\n");
+        goto out;
+      }
+      for (vaddr = vma->va_start ; vaddr < vma->va_end ; vaddr += RISCV_PGSIZE)
+      {
+        void *paddr = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(vaddr));
+        sbi_memset(paddr, 0, RISCV_PGSIZE);
+      }
+      if (vaddr != vma->va_end)
+      {
+        sbi_bug("[NE_REQUEST_REWIND]: vma->va_end not aligned\n");
+        goto out;
+      }
+      vma = vma->vm_next;
+    }
     
     /** reset the .bss section. 
      *  WARNING: 
