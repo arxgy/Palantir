@@ -2437,6 +2437,8 @@ uintptr_t resume_from_request(uintptr_t* regs, unsigned int eid)
   if (enclave->state == FRESH)
   {
     uintptr_t encl_ptbr = enclave->thread_context.encl_ptbr;
+    // TODO: zerotize the stack and heap, refer to 'initilze_va_struct' and 'enclave_sbrk'
+
     // rewind the context
     sbi_memset((void *)(&(enclave->thread_context)), 0, sizeof(struct thread_state_t));
     enclave->thread_context.encl_ptbr = encl_ptbr;
@@ -2920,6 +2922,37 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
   else if (return_reason == NE_REQUEST_REWIND) 
   {
     tgt_enclave->state = FRESH;
+    /** reset the heap */
+    ocall_request_rewind_t *rewind_pa = (ocall_request_rewind_t *) va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(pe_request->rewind_request));
+    struct pm_area_struct *pma = NULL;
+    struct vm_area_struct *vma = NULL;
+    vma = tgt_enclave->heap_vma;
+    
+    while (vma)
+    {
+      struct pm_area_struct *cur_pma = vma->pma;
+      delete_pma(&(tgt_enclave->pma_list), cur_pma);
+      cur_pma->pm_next = pma;
+      pma = cur_pma;
+      unmap((uintptr_t *)(tgt_enclave->root_page_table), vma->va_start, vma->va_end);
+      tgt_enclave->heap_vma = vma->vm_next;
+      vma = vma->vm_next;
+    }
+    if (tgt_enclave->heap_vma)
+    {
+      sbi_bug("Uncleaned heap_vma: %lx\n", (unsigned long)(tgt_enclave->heap_vma));
+    }
+    if (pma)
+    {
+      free_enclave_memory(pma);
+    }
+    // tlb_remote_sfence();
+    /** TODO: we do not set back the _heap_top here, because we didn't rewind the musl lib.
+     *        (left as our future work)
+    */
+    // tgt_enclave->_heap_top = ENCLAVE_DEFAULT_HEAP_BASE;
+    rewind_pa->pma = (unsigned long)(pma);
+    
     /** reset the .bss section. 
      *  WARNING: 
      *  We must memset the .bss sections carefully.
@@ -2960,7 +2993,6 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
     //     if (iter == tgt_enclave->bss_record_len)
     //         break;
     //   }
-
           // }
           // }
         //   iter++;
@@ -2969,7 +3001,6 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
         // }
         // if (iter == tgt_enclave->bss_record_len)
         //     break;
-
     //   }
     // // }
     //       iter++;
@@ -2981,8 +3012,7 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
 
     //   }
 
-    /** reset the .data section. 
-    */
+    /** reset the .data section. */
     if (tgt_enclave->data_record_len > 0)
     {
       iter = 0;
@@ -3011,7 +3041,7 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
             goto out;
           }
           iter++;
-        if (iter == tgt_enclave->data_record_len)
+          if (iter == tgt_enclave->data_record_len)
             break;
         }
         if (iter == tgt_enclave->data_record_len)
@@ -3558,6 +3588,9 @@ inspect_enclave_out:
  * \param tgt_eid The NE eid. (slab-layer)
  * \param src_eid The PE eid. (slab-layer)
  * \param response_arg The start VA address of PE's response arg.
+ * \return 0 : successfully responded
+ *        > 0: enclave need state rewind
+ *        < 0: error case
  */
 uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t response_arg)
 {
@@ -3580,7 +3613,10 @@ uintptr_t response_enclave(uintptr_t tgt_eid, uintptr_t src_eid, uintptr_t respo
 
   // The Children is waiting for response, do nothing.
   if (tgt_enclave->state == FRESH)
+  {
+    retval = 1UL;
     goto response_enclave_out;
+  }    
 
   src_enclave = __get_enclave(src_eid);
   if (!src_enclave || src_enclave->state != OCALLING || 
@@ -5117,9 +5153,18 @@ uintptr_t privil_resume_enclave(uintptr_t* regs, uintptr_t enclave_resume_args)
   {
     copy_to_host((void*)(enclave->kbuffer), resume_args, param_size);
   }
+
+  /* Get PMA (paddr) and let driver to free them */
+  /* The parameter in request_arg must be set to avoid null-deference */
+  uintptr_t request_vaddr = ((ocall_run_param_t *)resume_args)->request_arg;
+  ocall_request_t *request = (ocall_request_t *) va_to_pa((uintptr_t *)(enclave->root_page_table), (void *) request_vaddr);
+  ocall_request_rewind_t *rewind_request= (ocall_request_rewind_t *) va_to_pa((uintptr_t *)(enclave->root_page_table), (void *)(request->rewind_request));
+
+  /** FIX: this free_enclave_memory seemingly does not work */
+  free_enclave_memory((struct pm_area_struct *)(rewind_request->pma));
   copy_dword_to_host((uintptr_t*)enclave->ocall_func_id, OCALL_RESUME_ENCLAVE);
   copy_dword_to_host((uintptr_t*)enclave->ocall_arg0, enclave->kbuffer);
-  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)enclave_resume_args);
+  copy_dword_to_host((uintptr_t*)enclave->ocall_arg1, (uintptr_t)(rewind_request->pma));
 
   /* freeze PE, stay OCALLing */
   swap_from_enclave_to_host(regs, enclave);

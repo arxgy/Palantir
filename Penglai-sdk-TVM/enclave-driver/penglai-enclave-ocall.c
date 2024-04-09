@@ -339,6 +339,8 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   int ret = 0;
   /* the NE's return reason and value */
   unsigned long return_reason = 0, return_value = 0;
+  // struct pm_area_struct *pma;
+  // uintptr_t vaddr = 0, order = 0;
   void *kbuf;
   enclave_t *resume_enclave = NULL;
  // TODO: check ocall_arg0 is NULL or not.
@@ -351,6 +353,7 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   {
     kbuf = (void *) __va(enclave->ocall_arg0);
   }
+  // pma = (struct pm_area_struct*)(enclave->ocall_arg1);
 
   /**
    * step 1. prepare 
@@ -381,6 +384,23 @@ int handle_ocall_resume_enclave(enclave_instance_t *enclave_instance, enclave_t 
   {
     case RETURN_USER_NE_REQUEST:
       ret = SBI_PENGLAI_3(SBI_SM_RESPONSE_ENCLAVE, resume_enclave->eid, resume_id, ocall_resume_param_local->response_arg);
+      /** 
+       * TODO: if the enclave is FRESH (rewinding), clean all pages. 
+       * FIX: previous free_enclave_memory have no effect here.
+      */
+      
+      // if (ret > 0)
+      // {
+      //   while (pma)
+      //   {
+      //     pma = (struct pm_area_struct *) __va(pma);
+      //     vaddr = (uintptr_t)__va(pma->paddr);
+      //     order = ilog2((pma->size >> RISCV_PGSHIFT) - 1) + 1;
+      //     pma = pma->pm_next;
+      //     //should be freed after set pma to its next
+      //     free_pages(vaddr, order);
+      //   }
+      // }
     case RETURN_USER_NE_IRQ:
       return_reason = penglai_enclave_ocall_run((unsigned long)(&enclave_param));
       if (return_reason < 0)
