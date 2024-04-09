@@ -1,0 +1,4 @@
+eval-reset
+*.dump
+*.o
+*.S

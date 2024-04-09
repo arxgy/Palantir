@@ -17,15 +17,22 @@
 #define DEFAULT_INSPECT_TEXT_SIZE   512
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
+#define REWIND_LIMIT 8
+
+unsigned long get_cycle(void){
+	unsigned long n;
+	 __asm__ __volatile__("rdcycle %0" : "=r"(n));
+	 return n;
+}
 
 int execute(unsigned long * args)
 {
-  char *elf_file_name = "/root/case-reset";
+  char *elf_file_name = "/root/eval-payload";
   ocall_create_param_t create_param;
 
   /* parameter preparation */
   create_param.elf_file_ptr = (unsigned long) &create_param;
-  create_param.encl_type = PRIVIL_ENCLAVE; /* nesting create */
+  create_param.encl_type = NORMAL_ENCLAVE; /* nesting create */
   create_param.stack_size = DEFAULT_STACK_SIZE;
   create_param.migrate_arg = 0;
   /* disable shm currently */
@@ -33,7 +40,7 @@ int execute(unsigned long * args)
   create_param.shm_offset = 0;
   create_param.shm_size = 0;
   unsigned long eid = get_enclave_id();
-  eapp_print("[pe] [Attestation Module] Allocated PE's eid: [%d]\n", eid);
+  eapp_print("[pe] [Reset Module] Allocated PE's eid: [%d]\n", eid);
   
   memcpy(create_param.elf_file_name, elf_file_name, ELF_FILE_LEN);  
   int retval = eapp_create_enclave((unsigned long)(&create_param));
@@ -49,21 +56,22 @@ int execute(unsigned long * args)
   attest_param.nonce = 4096;
   attest_param.report_ptr = (unsigned long)(&report);
   memset(&report, 0, sizeof(struct report_t));
-  // eapp_print("[pe] [Attestation Module] report vaddr: [%p]", &report);
+  // eapp_print("[pe] [Reset Module] report vaddr: [%p]", &report);
   retval = eapp_attest_enclave((unsigned long)(&attest_param));
   if (retval)
   {
     eapp_print("eapp_attest_enclave failed: %d\n",retval);
   }
+  /* before run: snapshot (global variable, heap, stack) */
 
-  int iter = 0, sum = 0;
+  int iter = 0, sum = 0, requested = 0;
   char *hash = report.enclave.hash;
   for (iter = 0 ; iter < HASH_SIZE; iter++)
   {
     sum = sum + (int) (hash[iter]);
     // eapp_print("%d|", sum);
   }
-  eapp_print("\n[pe] [Attestation Module] attestation sum: %d", sum);
+  eapp_print("\n[pe] [Reset Module] attestation sum: %d", sum);
 
   char content[PAGE_SIZE];
   memset((void *)content, 0, PAGE_SIZE);
@@ -72,9 +80,7 @@ int execute(unsigned long * args)
 
   ocall_request_t request_param;
   ocall_response_t response_param;
-  ocall_request_inspect_t inspect_request_param;
   ocall_request_rewind_t rewind_request_param;
-  request_param.inspect_request = (unsigned long)(&inspect_request_param);
   request_param.rewind_request = (unsigned long)(&rewind_request_param);
   response_param.inspect_response = NULL;
   response_param.share_page_response = NULL;
@@ -93,26 +99,43 @@ int execute(unsigned long * args)
   retval = eapp_run_enclave((unsigned long)(&run_param));
 
   unsigned loop = 0;
+  unsigned repeat = 0;
   while (retval == 0)
   {
-    loop++;
+    loop++;    
+    requested = 0;
+    switch (return_reason)
+    {
+      case NE_REQUEST_REWIND:
+        requested = 1;
+        repeat++;
+        break;
+      default:
+        break;
+    }
     if (return_reason == RETURN_USER_EXIT_ENCL)
     {
-      eapp_print("[pe] [Attestation Module] eapp_run_enclave return_value: [%d]\n", return_value);
+      eapp_print("[pe] [Reset Module] eapp_run_enclave return_value: [%d]\n", return_value);
       break;
     }
     /* we reuse the [return reason] as [resume reason] */
     if (retval)
     {
-      eapp_print("[pe] [Attestation Module] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
+      eapp_print("[pe] [Reset Module] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
       break;
     }
     run_param.resume_reason = return_reason;
-    retval = eapp_resume_enclave((unsigned long)(&run_param));
+    if (requested) {
+      run_param.resume_reason = RETURN_USER_NE_REQUEST;
+    }
+
+    if (repeat < REWIND_LIMIT)
+      retval = eapp_resume_enclave((unsigned long)(&run_param));
+    else 
+      break;
   }
 
   
-  eapp_print("[pe] [Attestation Module] hello world!\n");
   EAPP_RETURN(0);
 
 }

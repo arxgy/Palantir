@@ -73,8 +73,8 @@ int execute(unsigned long * args)
 
   ocall_request_t request_param;
   ocall_response_t response_param;
-  ocall_request_inspect_t inspect_request_param;
-  request_param.inspect_request = (unsigned long)(&inspect_request_param);
+  ocall_request_rewind_t rewind_request_param;
+  request_param.rewind_request = (unsigned long)(&rewind_request_param);
   response_param.inspect_response = NULL;
   response_param.share_page_response = NULL;
   ocall_request_dump_t *dump_context = NULL;
@@ -100,7 +100,6 @@ int execute(unsigned long * args)
     {
       case NE_REQUEST_REWIND:
         requested = 1;
-        eapp_print("What should I do?\n");
         break;
       default:
         break;
@@ -120,7 +119,13 @@ int execute(unsigned long * args)
     if (requested) {
       run_param.resume_reason = RETURN_USER_NE_REQUEST;
     }
-    retval = eapp_resume_enclave((unsigned long)(&run_param));
+    if (loop < 8)
+    {
+      eapp_print("[rewinding] [RESET] pma: %lx", rewind_request_param.pma);
+      retval = eapp_resume_enclave((unsigned long)(&run_param));
+    }
+    else 
+      break;
   }
 
   

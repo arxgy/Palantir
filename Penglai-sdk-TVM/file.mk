@@ -32,6 +32,12 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-share/eval-share \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-sharee/eval-sharee \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-sharer/eval-sharer \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-attestation/eval-attestation \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-reset/eval-reset \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-payload/eval-payload \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-wrapper/eval-wrapper \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-reboot/eval-reboot \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-3-cases/eval-workload/eval-workload \
 	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/aes/aes-baseline \
 	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/dhrystone/dhrystone-baseline \
 	$(srcdir)/Penglai-sdk-TVM/demo/rv8-baseline/norx/norx-baseline \
