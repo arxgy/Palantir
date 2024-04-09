@@ -2929,7 +2929,28 @@ uintptr_t privil_resume_after_resume(struct enclave_t *enclave, uintptr_t return
     /** mark enclave as FRESH */
     tgt_enclave->state = FRESH;
     /** reset the heap */
-    // vma = tgt_enclave->heap_vma;
+    vma = tgt_enclave->heap_vma;
+    while (vma)
+    {
+      copy_size = vma->va_end - vma->va_start;
+      if ((vma->va_start & (RISCV_PGSIZE-1)) != 0) 
+      {
+        sbi_bug("[NE_REQUEST_REWIND]: Stack vma not aligned\n");
+        goto out;
+      }
+      for (vaddr = vma->va_start ; vaddr < vma->va_end ; vaddr += RISCV_PGSIZE)
+      {
+        void *paddr = va_to_pa((uintptr_t *)(tgt_enclave->root_page_table), (void *)(vaddr));
+        sbi_memset(paddr, 0, RISCV_PGSIZE);
+      }
+      if (vaddr != vma->va_end)
+      {
+        sbi_bug("[NE_REQUEST_REWIND]: vma->va_end not aligned\n");
+        goto out;
+      }
+      vma = vma->vm_next;
+    }
+    // unmap heap, deprecated.
     // while (vma)
     // {
     //   cur_pma = vma->pma;
