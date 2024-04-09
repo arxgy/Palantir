@@ -302,6 +302,7 @@ typedef struct ocall_request
   unsigned long request;            // reason in PE
   unsigned long inspect_request;    // VA in NE
   unsigned long share_page_request; // VA in NE
+  unsigned long rewind_request;     // VA in NE
   /* todo. support more requests */
 } ocall_request_t;
 
@@ -342,6 +343,11 @@ typedef struct ocall_request_share
   unsigned long share_content_ptr;  // VA
   unsigned long share_size;
 } ocall_request_share_t;
+
+typedef struct ocall_request_rewind
+{
+  unsigned long pma;                // paddr
+} ocall_request_rewind_t;
 
 typedef struct ocall_response_share
 {
