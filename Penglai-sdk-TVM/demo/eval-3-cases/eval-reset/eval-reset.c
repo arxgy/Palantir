@@ -17,7 +17,7 @@
 #define DEFAULT_INSPECT_TEXT_SIZE   512
 #define DEFAULT_INSPECT_STACK_SIZE  256
 #define DEFAULT_STACK_SIZE  64*1024
-#define REWIND_LIMIT 8
+#define REWIND_LIMIT 1
 
 unsigned long get_cycle(void){
 	unsigned long n;
@@ -40,10 +40,14 @@ int execute(unsigned long * args)
   create_param.shm_offset = 0;
   create_param.shm_size = 0;
   unsigned long eid = get_enclave_id();
+  unsigned long prev_time;
   eapp_print("[pe] [Reset Module] Allocated PE's eid: [%d]\n", eid);
   
   memcpy(create_param.elf_file_name, elf_file_name, ELF_FILE_LEN);  
+  
+  prev_time = get_cycle();
   int retval = eapp_create_enclave((unsigned long)(&create_param));
+  eapp_print("[BREAKDOWN] CREATE time: %lx\n", get_cycle() - prev_time);
   if (retval)
   {
     eapp_print("eapp_create_enclave failed: %d\n",retval);
@@ -129,7 +133,7 @@ int execute(unsigned long * args)
       run_param.resume_reason = RETURN_USER_NE_REQUEST;
     }
 
-    if (repeat < REWIND_LIMIT)
+    if (repeat <= REWIND_LIMIT)
       retval = eapp_resume_enclave((unsigned long)(&run_param));
     else 
       break;

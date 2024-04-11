@@ -14,7 +14,8 @@
 #include <unistd.h>
 
 #define ENTRY_POINT 0x1000
-#define SIZE 1000
+#define MEGABYTE_SZ 1 << 20
+#define SIZE_ORDER 6
 
 unsigned long global_array [1024];    // .bss
 unsigned long global_zero = 0;        // .sbss
@@ -35,13 +36,9 @@ unsigned long end_cycle;
 
 int execute(unsigned long * args)
 {
-	end_cycle = get_cycle();
-	eapp_print("REWIND cost: %lx (cycle)\n", end_cycle - begin_cycle);
+	eapp_print("[BREAKDOWN] TOTAL cost (w/ alloc): %lx (cycle)\n", get_cycle() - begin_cycle);
   // register void *sp asm ("sp");
   // eapp_print("[Payload] %p", sp);
-	char dummy[SIZE] = {'a'};
-	dummy[SIZE-1] = '\n';
-	if(dummy[0] == 'a')eapp_print("Hello, bloated world");
 
   int i = 0, j = 0;
   ocall_request_t req;
@@ -49,23 +46,15 @@ int execute(unsigned long * args)
   req.inspect_request = NULL;
   req.share_page_request = NULL;
 
-    unsigned long x = global_array[523];
-    // eapp_print("[ne] global_array[523]: [%x]\n", x);
-
-    global_ul++;
-    global_zero++;
-    global_array[523] = 523;
-    // eapp_print("[ne] global_ul: [%x]\n", global_ul);
-    // eapp_print("[ne] global_zero: [%x]\n", global_zero);
-    // eapp_print("[ne] i: [%x]\n", i);
-    for (j = 0 ; j < 8 ; j++)
-    {
-      void *p = malloc(sizeof(unsigned long)*128);
-      // eapp_print("[ne] malloc address: [%p]\n", p);
-    }
-		begin_cycle = get_cycle();
-    eapp_pause_enclave((unsigned long)(&req));
-  // }
+  for (j = 0 ; j < (1 << SIZE_ORDER) ; j++ )
+  {
+    void *p = malloc(MEGABYTE_SZ);
+    memset(p, 0, MEGABYTE_SZ);
+  }
+	// eapp_print("[BREAKDOWN] malloc cost: %lx (cycle)\n", get_cycle() - end_cycle);
+	eapp_print("[BREAKDOWN] COMMUNICATION (PAUSE start): %lx\n", get_cycle());
+  begin_cycle = get_cycle();
+  eapp_pause_enclave((unsigned long)(&req));
 
   for (i = 0 ; i < 1<<22 ; i++)
   {

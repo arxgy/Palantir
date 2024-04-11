@@ -2,3 +2,6 @@ eval-attestation
 *.dump
 *.o
 *.S
+*.csv
+*.pdf
+*.png

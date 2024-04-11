@@ -72,10 +72,14 @@ int execute(unsigned long * args)
 
   memset(&report, 0, sizeof(struct report_t));
 
-  for (int repeat = 0 ; repeat < 1 ; repeat++)
+  for (int repeat = 0 ; repeat < 2 ; repeat++)
   { 
-  	eapp_print("Workload Start Creating!: %lx (cycle)\n", get_cycle());
+    unsigned long begin_cyc = get_cycle();
     int retval = eapp_create_enclave((unsigned long)(&create_param));
+    unsigned long end_cyc = get_cycle();
+    eapp_print("[BREAKDOWN] CREATE time (start): %lx", begin_cyc);
+    eapp_print("[BREAKDOWN] CREATE time (end): %lx", end_cyc);
+    eapp_print("[BREAKDOWN] CREATE time: %lx", end_cyc - begin_cyc);
     if (retval)
     {
       eapp_print("eapp_create_enclave failed: %d\n",retval);
