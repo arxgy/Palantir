@@ -1,6 +1,6 @@
 /**
  * This program is a Privileged Enclave demo in Standard Evaluation.
- * It will load rv8 testbench cases as a Normal Enclave and execute it.
+ * It will load chain-1bench cases as a Normal Enclave and execute it.
  *  by Anonymous Author @ May 27, 2023.
 */
 #include "eapp.h"
@@ -20,7 +20,7 @@
 
 int hello(unsigned long * args)
 {  
-  char *elf_file_name = "/root/chain-1";
+  char *elf_file_name = "/root/chain-2";
   ocall_create_param_t create_param;
 
   /* parameter preparation */
@@ -86,13 +86,13 @@ int hello(unsigned long * args)
   {
     if (return_reason == RETURN_USER_EXIT_ENCL)
     {
-      eapp_print("[pe] [rv8 test] eapp_run_enclave returned! \n");
+      eapp_print("[pe] [chain-3] eapp_run_enclave returned! \n");
       break;
     }
     /* we reuse the [return reason] as [resume reason] */
     if (retval)
     {
-      eapp_print("[pe] [rv8 test] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
+      eapp_print("[pe] [chain-3] eapp_inspect_enclave return_value non-zero: [%d]\n", return_value);
       break;
     }
     run_param.resume_reason = return_reason;
@@ -100,7 +100,7 @@ int hello(unsigned long * args)
   }
 
   /* exit successfully */
-  eapp_print("[pe] [rv8 test] hello world!\n");
+  eapp_print("[pe] [chain-3] hello world!\n");
   EAPP_RETURN(0);
 }
 

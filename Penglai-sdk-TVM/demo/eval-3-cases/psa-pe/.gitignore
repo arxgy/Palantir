@@ -1,0 +1,7 @@
+psa_server
+psa_pe
+psa_server\ copy.c
+*.dump
+*.o
+*.S
+*.csv

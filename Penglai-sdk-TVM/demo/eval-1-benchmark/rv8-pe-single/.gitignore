@@ -1,4 +1,5 @@
 rv8-pe
+rv8-pe-single
 *.dump
 *.o
 *.S

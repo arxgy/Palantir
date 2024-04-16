@@ -1,6 +1,7 @@
 #include "penglai-enclave.h"
 #include <stdlib.h>
 #include <pthread.h>
+pthread_mutex_t mutex;
 
 #define MAGIC_SHM_VALUE 11111
 #define MAGIC_RELAY_PAGE_VALUE 22222
@@ -90,10 +91,13 @@ void* create_enclave(void* args0)
     res = -1;
   }
   unsigned long primitive_create_start,primitive_create_end;
+  pthread_mutex_lock(&mutex);
   asm volatile("rdcycle %0" : "=r"(primitive_create_start));
   ret = ioctl(enclave->fd, PENGLAI_ENCLAVE_IOC_CREATE_ENCLAVE, &(enclave->user_param));
   asm volatile("rdcycle %0" : "=r"(primitive_create_end));
   primitive_create_time += (primitive_create_end - primitive_create_start);
+  pthread_mutex_unlock(&mutex);
+
   if(ret < 0)
   {
     fprintf(stderr, "LIB: PLenclave_create: ioctl create enclave is failed\n");
@@ -126,16 +130,18 @@ void* create_enclave(void* args0)
     enclave->attest_param.eid = enclave->eid;
     enclave->attest_param.nonce = 0;
     unsigned long primitive_attest_start,primitive_attest_end;
+    pthread_mutex_lock(&mutex);
     asm volatile("rdcycle %0" : "=r"(primitive_attest_start));
     ret = ioctl(enclave->fd, PENGLAI_ENCLAVE_IOC_ATTEST_ENCLAVE, &(enclave->attest_param));
     asm volatile("rdcycle %0" : "=r"(primitive_attest_end));
     primitive_attest_time += (primitive_attest_end - primitive_attest_start);
+    pthread_mutex_unlock(&mutex);
 
-    if (enclave->user_param.isShadow) {
-      printf("\nAttesting: is shadow\n");
-    } else {
-      printf("\nAttesting: is normal\n");
-    }
+    // if (enclave->user_param.isShadow) {
+    //   printf("\nAttesting: is shadow\n");
+    // } else {
+    //   printf("\nAttesting: is normal\n");
+    // }
     if(ret < 0)
     {
       fprintf(stderr, "LIB: ioctl attest enclave is failed ret %d \n", ret);
@@ -151,7 +157,7 @@ void* create_enclave(void* args0)
       PLenclave_set_mem_arg(enclave, mm_arg_id, 0, mm_arg_size);
   }
   PLenclave_destruct(enclave);
-  printf("host: PLenclave run is not run \n");
+  // printf("host: PLenclave run is not run \n");
 
 free_enclave:  
   PLenclave_shmdt(shmid, shm);
@@ -174,7 +180,7 @@ int main(int argc, char** argv)
     printf("Please input the enclave ELF file name\n");
   }
 
-  int thread_num = 100;
+  int thread_num = 1024;
 
   if(argc == 3)
   {
@@ -185,6 +191,7 @@ int main(int argc, char** argv)
       return -1;
     }
   }
+  pthread_mutex_init(&mutex, 0);
 
   pthread_t* threads = (pthread_t*)malloc(thread_num * sizeof(pthread_t));
   struct args* args = (struct args*)malloc(thread_num * sizeof(struct args));
@@ -214,16 +221,18 @@ int main(int argc, char** argv)
   {
     pthread_join(threads[i], (void**)0);
   }
-  printf("host create 100 enclave costs %ld cycles\n",create_time);
-  printf("host attesting 100 enclave costs %ld cycles\n",attest_time);
-  printf("[primitive] host creating 100 enclave costs %ld cycles\n",primitive_create_time);
-  printf("[primitive] host attesting 100 enclave costs %ld cycles\n",primitive_attest_time);
+  // printf("host create 100 enclave costs %ld cycles\n",create_time);
+  // printf("host attesting 100 enclave costs %ld cycles\n",attest_time);
+  printf("[primitive] host CREATE costs %lx cycles\n",primitive_create_time);
+  // printf("[primitive] host attesting 100 enclave costs %ld cycles\n",primitive_attest_time);
   
 
 
   printf("host: after exit the thread\n");
 out:
   elf_args_destroy(enclaveFile);
+  pthread_mutex_destroy(&mutex);
+
   free(enclaveFile);
   free(threads);
   free(args);
