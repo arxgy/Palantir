@@ -1,8 +1,15 @@
 #include "penglai-enclave.h"
 #include <stdlib.h>
 #include <string.h>
+#define REQUESTED_NE 4
 
+unsigned long get_cycle(void){
+	unsigned long n;
+	 __asm__ __volatile__("rdcycle %0" : "=r"(n));
+	 return n;
+}
 int main(int argc, char**argv){
+    unsigned long begin_cyc, end_cyc, total_cyc = 0;
     if(argc != 4 && argc != 5){
         printf("Usage: ./psahost psa_client psa_server filesystem | ./psahost psa_client psa_server filesystem");
         exit(0);
@@ -22,6 +29,7 @@ int main(int argc, char**argv){
 
 
 server:
+    begin_cyc = get_cycle();
     server_enclaveFile = malloc(sizeof(struct elf_args));
     char* server_eappfile = argv[2];
     elf_args_init(server_enclaveFile,server_eappfile);
@@ -40,7 +48,10 @@ server:
         printf("host: failed to create server_enclave\n");
         goto out1;
     }
+    end_cyc = get_cycle();
+    total_cyc += end_cyc - begin_cyc;
 server2:
+    begin_cyc = get_cycle();
     server_enclaveFile2 = malloc(sizeof(struct elf_args));
     char* server_eappfile2 = argv[3];
     elf_args_init(server_enclaveFile2,server_eappfile2);
@@ -59,9 +70,12 @@ server2:
         printf("host: failed to create server_enclave\n");
         goto out1;
     }
+    end_cyc = get_cycle();
+    total_cyc += end_cyc - begin_cyc;
     if (argc == 5)
     {
   server3:
+      begin_cyc = get_cycle();
       server_enclaveFile3 = malloc(sizeof(struct elf_args));
       char* server_eappfile3 = argv[4];
       elf_args_init(server_enclaveFile3,server_eappfile3);
@@ -85,6 +99,8 @@ server2:
           printf("host: failed to create server_enclave\n");
           goto out1;
       }
+      end_cyc = get_cycle();
+      total_cyc += end_cyc - begin_cyc;
     }
 caller:
     caller_enclaveFile = malloc(sizeof(struct elf_args));
@@ -102,13 +118,20 @@ caller:
     caller_params = malloc(sizeof(struct enclave_args));
     enclave_args_init(caller_params);
 
-    if(PLenclave_create(caller_enclave, caller_enclaveFile, caller_params) < 0 )
+    begin_cyc = get_cycle();
+    for (int k = 0 ; k < REQUESTED_NE ; k++)
     {
-      printf("host: failed to create caller_enclave\n");
-      goto out1;
+      if(PLenclave_create(caller_enclave, caller_enclaveFile, caller_params) < 0 )
+      {
+        printf("host: failed to create caller_enclave\n");
+        goto out1;
+      }
     }
-    PLenclave_run(caller_enclave);
-
+    end_cyc = get_cycle();
+    total_cyc += end_cyc - begin_cyc;
+    // PLenclave_run(caller_enclave);
+    printf("total_cyc: %lx\n", total_cyc);
+    
 out1:
 if(server_enclaveFile)
   {

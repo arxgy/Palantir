@@ -180,7 +180,7 @@ int main(int argc, char** argv)
     printf("Please input the enclave ELF file name\n");
   }
 
-  int thread_num = 1024;
+  int thread_num = 4;
 
   if(argc == 3)
   {

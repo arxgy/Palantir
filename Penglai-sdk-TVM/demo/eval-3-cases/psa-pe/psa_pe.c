@@ -259,7 +259,7 @@ psa_status_t psa_sst_get_support_req(psa_call_arg_t * psa_arg)
 
     return PSA_SUCCESS;
 }
-#define REQUESTED_NE 1024
+#define REQUESTED_NE 4
 unsigned long get_cycle(void){
 	unsigned long n;
 	 __asm__ __volatile__("rdcycle %0" : "=r"(n));

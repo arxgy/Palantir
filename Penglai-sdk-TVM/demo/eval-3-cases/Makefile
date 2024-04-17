@@ -6,6 +6,8 @@ all:
 	make -C eval-share
 	make -C eval-sharee
 	make -C eval-sharer
+	make -C psa-pe
+	make -C service-ne
 
 clean:
 	make -C eval-inspectee clean
@@ -15,3 +17,5 @@ clean:
 	make -C eval-share clean
 	make -C eval-sharee clean
 	make -C eval-sharer clean
+	make -C psa-pe clean
+	make -C service-ne clean
