@@ -1,4 +1,4 @@
-# Penglai-TVM-Privileged
+# Palantir-Implementation
 This repository provides the __Implementation__ and __Evaluation__ part of <span style="font-variant:small-caps;">Palantír</span> framework.
 
 Penglai-Enclave is a scalable enclave system for RISC-V architecture.
@@ -105,7 +105,7 @@ Then `case-sharee`, `case-sharee-plus` will require `case-sharer`'s page respect
 
 #### Live Enclave Migration
 ```
-./host case-migraor
+./host case-migrator
 ```
 
 In this case, we perform a enclave migration locally.
