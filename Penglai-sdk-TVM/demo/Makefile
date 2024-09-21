@@ -18,6 +18,7 @@ all:
 	make -C case-2-sharing
 	make -C case-3-migration
 	make -C case-4-reusable
+	make -C case-5-hdw
 
 	#CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  mphost_normal
 
@@ -41,4 +42,5 @@ clean:
 	make -C case-2-sharing clean
 	make -C case-3-migration clean
 	make -C case-4-reusable clean
+	make -C case-5-hdw clean
 

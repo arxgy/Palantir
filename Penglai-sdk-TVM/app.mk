@@ -20,6 +20,10 @@ WOLFSSL_LIB = $(WOLFSSL_LIB_DIR)/libwolfcrypt.a
 MBEDTLS_INCLUDE_DIR = $(PENGLAI_SDK)/lib/mbedtls/include
 MBEDTLS_LIB = $(PENGLAI_SDK)/lib/mbedtls/library/libmbedcrypto.a
 
+HDW_LIB_DIR = $(PENGLAI_SDK)/lib
+HDW_INCLUDE_DIR = $(PENGLAI_SDK)/lib/hdw
+HDW_LIB = $(HDW_LIB_DIR)/libhdw.a
+
 LDFLAGS += -static -L$(SDK_LIB_DIR) -L$(MUSL_LIB_DIR) -lc -lm
 #LDFLAGS = -static -L$(SDK_LIB_DIR) -lpenglai-enclave-eapp
 CFLAGS += -I$(SDK_INCLUDE_DIR) -I$(WOLFSSL_INCLUDE_DIR) -I$(MBEDTLS_INCLUDE_DIR) -mabi=lp64 -march=rv64imac
@@ -36,7 +40,7 @@ $(APP_C_OBJS): %.o: %.c
 	echo $(PENGLAI_SDK)
 	$(CC) $(CFLAGS) -c $<
 
-$(APP_BIN): % : $(APP_C_OBJS) $(APP_A_OBJS) $(SDK_APP_LIB) $(WOLFSSL_LIB) $(MBEDTLS_LIB) $(MUSL_LIBC) $(GCC_LIB)
+$(APP_BIN): % : $(APP_C_OBJS) $(APP_A_OBJS) $(SDK_APP_LIB) $(WOLFSSL_LIB) $(HDW_LIB) $(MBEDTLS_LIB) $(MUSL_LIBC) $(GCC_LIB)
 	$(LINK) $(LDFLAGS) -o $@ $^ -T $(APP_LDS)
 	chmod -x $@
 

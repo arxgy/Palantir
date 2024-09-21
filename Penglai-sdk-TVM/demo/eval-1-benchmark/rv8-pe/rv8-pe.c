@@ -20,7 +20,7 @@
 
 int hello(unsigned long * args)
 {  
-  char *elf_file_name = "/root/chain-1";
+  char *elf_file_name = "/root/chain-5";
   ocall_create_param_t create_param;
 
   /* parameter preparation */

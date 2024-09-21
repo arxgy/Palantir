@@ -15,6 +15,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-attestation/case-attestation \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-reset/case-reset \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-payload/case-payload \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-root/case-root \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/aes/aes \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/dhrystone/dhrystone \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/norx/norx \
@@ -22,6 +23,13 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/qsort/qsort \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/sha512/sha512 \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8-pe/rv8-pe \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-1/chain-1 \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-2/chain-2 \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-3/chain-3 \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-4/chain-4 \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-5/chain-5 \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-6/chain-6 \
+	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/chain-7/chain-7 \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-2-interface/host-interface/host-interface \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-2-interface/pe-interface/pe-interface \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-2-interface/load-enclave/load-enclave \
