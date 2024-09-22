@@ -28,10 +28,6 @@ void __printHexData__(char * loghea,unsigned char  *pData, int nLen) {
 
 int execute(unsigned long * args)
 {
-  
-  eapp_print("[pe] [case-root] N_COLS: %d\n", N_COLS);
-  eapp_print("[pe] [case-root] FROMHEX_MAXLEN: %d\n", FROMHEX_MAXLEN);
-
 	const char *passphrase ="";
 	int keylength = 64;
     int COIN_TYPE = 0;

@@ -38,14 +38,24 @@
 #include <stdio.h>
 #include <time.h>
 
+static uint64_t hdw_seed;
+
+void hdw_srand(unsigned s)
+{
+	hdw_seed = s-1;
+}
+
 uint32_t random32(void)
 {
 	static int initialized = 0;
 	if (!initialized) {
-		srand((unsigned)time(NULL));
+		hdw_srand(36413);
 		initialized = 1;
 	}
-	return ((rand() & 0xFF) | ((rand() & 0xFF) << 8) | ((rand() & 0xFF) << 16) | ((uint32_t) (rand() & 0xFF) << 24));
+	hdw_seed = 6364136223846793005ULL*hdw_seed + 1;
+	return (uint32_t) (hdw_seed>>33);
+	// return ((rand() & 0xFF) | ((rand() & 0xFF) << 8) | ((rand() & 0xFF) << 16) | ((uint32_t) (rand() & 0xFF) << 24));
+	// return 19;
 }
 
 #endif /* RAND_PLATFORM_INDEPENDENT */
