@@ -26,7 +26,7 @@ HDW_LIB = $(HDW_LIB_DIR)/libhdw.a
 
 LDFLAGS += -static -L$(SDK_LIB_DIR) -L$(MUSL_LIB_DIR) -lc -lm
 #LDFLAGS = -static -L$(SDK_LIB_DIR) -lpenglai-enclave-eapp
-CFLAGS += -I$(SDK_INCLUDE_DIR) -I$(WOLFSSL_INCLUDE_DIR) -I$(MBEDTLS_INCLUDE_DIR) -mabi=lp64 -march=rv64imac
+CFLAGS += -I$(SDK_INCLUDE_DIR) -I$(WOLFSSL_INCLUDE_DIR) -I$(MBEDTLS_INCLUDE_DIR) -I$(HDW_INCLUDE_DIR) -mabi=lp64 -march=rv64imac
 
 APP_C_OBJS = $(patsubst %.c,%.o, $(APP_C_SRCS))
 APP_A_OBJS = $(patsubst %.s,%.o, $(APP_A_SRCS))

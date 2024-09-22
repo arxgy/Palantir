@@ -7,7 +7,9 @@
 #include "eapp.h"
 #include "print.h"
 #include "privil.h"
-#include "hdwallet.h"
+// #include "hdwallet.h"
+#include "bip32_bip39.h"
+#include "aes_coin/aes_coin.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,7 +21,8 @@
 int execute(unsigned long * args)
 {
   
-  eapp_print("[pe] [case-root] %d\n", SHA256_DIGEST_LENGTH);
+  eapp_print("[pe] [case-root] N_COLS: %d\n", N_COLS);
+  eapp_print("[pe] [case-root] FROMHEX_MAXLEN: %d\n", FROMHEX_MAXLEN);
   EAPP_RETURN(0);
 
 }

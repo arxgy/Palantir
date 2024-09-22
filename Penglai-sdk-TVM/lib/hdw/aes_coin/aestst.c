@@ -112,67 +112,67 @@ unsigned char res[3][32] =
 // #endif
 // }
 
-int main(void)
-{   unsigned char   out[32], ret[32], err = 0;
-    f_ectx          alge[1];
-    f_dctx          algd[1];
+// int main(void)
+// {   unsigned char   out[32], ret[32], err = 0;
+//     f_ectx          alge[1];
+//     f_dctx          algd[1];
 
-    aes_init();
+//     aes_init();
 
-    message("\nRun tests for the AES algorithm");
+//     message("\nRun tests for the AES algorithm");
 
-    memset(&alge, 0, sizeof(aes_encrypt_ctx));
-    memset(&algd, 0, sizeof(aes_decrypt_ctx));
+//     memset(&alge, 0, sizeof(aes_encrypt_ctx));
+//     memset(&algd, 0, sizeof(aes_decrypt_ctx));
 
-#if defined( AES_128 )
-    memset(out, 0xcc, 16); memset(ret, 0xcc, 16);
-    printf("\n\n// lengths:  block = 16, bytes, key = 16 bytes");
-    f_enc_key128(alge, exh);
-    oblk("// key     = ", exh, 16);
-    oblk("// input   = ", pih, 16);
-    do_enc(alge, pih, out, 1);
-    oblk("// encrypt = ", out, 16);
-    if(memcmp(out, res[0], 16)) { message (" error"); err += 1; }
-    f_dec_key128(algd, exh);
-    do_dec(algd, out, ret, 1);
-    oblk("// decrypt = ", ret, 16);
-    if(memcmp(ret, pih, 16)) { message (" error"); err += 2; }
-#endif
+// #if defined( AES_128 )
+//     memset(out, 0xcc, 16); memset(ret, 0xcc, 16);
+//     printf("\n\n// lengths:  block = 16, bytes, key = 16 bytes");
+//     f_enc_key128(alge, exh);
+//     oblk("// key     = ", exh, 16);
+//     oblk("// input   = ", pih, 16);
+//     do_enc(alge, pih, out, 1);
+//     oblk("// encrypt = ", out, 16);
+//     if(memcmp(out, res[0], 16)) { message (" error"); err += 1; }
+//     f_dec_key128(algd, exh);
+//     do_dec(algd, out, ret, 1);
+//     oblk("// decrypt = ", ret, 16);
+//     if(memcmp(ret, pih, 16)) { message (" error"); err += 2; }
+// #endif
 
-#if defined( AES_192 )
-    memset(out, 0xcc, 16); memset(ret, 0xcc, 16);
-    printf("\n\n// lengths:  block = 16, bytes, key = 24 bytes");
-    f_enc_key192(alge, exh);
-    oblk("// key     = ", exh, 24);
-    oblk("// input   = ", pih, 16);
-    do_enc(alge, pih, out, 1);
-    oblk("// encrypt = ", out, 16);
-    if(memcmp(out, res[1], 16))  { message (" error"); err += 4; }
-    f_dec_key192(algd, exh);
-    do_dec(algd, out, ret, 1);
-    oblk("// decrypt = ", ret, 16);
-    if(memcmp(ret, pih, 16))  { message (" error"); err += 8; }
-#endif
+// #if defined( AES_192 )
+//     memset(out, 0xcc, 16); memset(ret, 0xcc, 16);
+//     printf("\n\n// lengths:  block = 16, bytes, key = 24 bytes");
+//     f_enc_key192(alge, exh);
+//     oblk("// key     = ", exh, 24);
+//     oblk("// input   = ", pih, 16);
+//     do_enc(alge, pih, out, 1);
+//     oblk("// encrypt = ", out, 16);
+//     if(memcmp(out, res[1], 16))  { message (" error"); err += 4; }
+//     f_dec_key192(algd, exh);
+//     do_dec(algd, out, ret, 1);
+//     oblk("// decrypt = ", ret, 16);
+//     if(memcmp(ret, pih, 16))  { message (" error"); err += 8; }
+// #endif
 
-#if defined( AES_256 )
-    memset(out, 0xcc, 16); memset(ret, 0xcc, 16);
-    printf("\n\n// lengths:  block = 16, bytes, key = 32 bytes");
-    f_enc_key256(alge, exh);
-    oblk("// key     = ", exh, 32);
-    oblk("// input   = ", pih, 16);
-    do_enc(alge, pih, out, 1);
-    oblk("// encrypt = ", out, 16);
-    if(memcmp(out, res[2], 16))  { message (" error"); err += 16; }
-    f_dec_key256(algd, exh);
-    do_dec(algd, out, ret, 1);
-    oblk("// decrypt = ", ret, 16);
-    if(memcmp(ret, pih, 16))  { message (" error"); err += 32; }
-#endif
+// #if defined( AES_256 )
+//     memset(out, 0xcc, 16); memset(ret, 0xcc, 16);
+//     printf("\n\n// lengths:  block = 16, bytes, key = 32 bytes");
+//     f_enc_key256(alge, exh);
+//     oblk("// key     = ", exh, 32);
+//     oblk("// input   = ", pih, 16);
+//     do_enc(alge, pih, out, 1);
+//     oblk("// encrypt = ", out, 16);
+//     if(memcmp(out, res[2], 16))  { message (" error"); err += 16; }
+//     f_dec_key256(algd, exh);
+//     do_dec(algd, out, ret, 1);
+//     oblk("// decrypt = ", ret, 16);
+//     if(memcmp(ret, pih, 16))  { message (" error"); err += 32; }
+// #endif
 
-    if(!err)
-        message("\n\nThese values are all correct\n\n");
-    else
-        message("\n\nSome values are in error\n\n");
+//     if(!err)
+//         message("\n\nThese values are all correct\n\n");
+//     else
+//         message("\n\nSome values are in error\n\n");
 
-    return 0;
-}
+//     return 0;
+// }
