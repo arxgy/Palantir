@@ -1,0 +1,4 @@
+case-raw-wallet
+*.dump
+*.o
+*.S

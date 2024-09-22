@@ -1,4 +1,6 @@
 all:
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  case-root
+	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  case-raw-wallet
 clean:
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  case-root clean
+	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C  case-raw-wallet clean

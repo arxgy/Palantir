@@ -1,0 +1,4 @@
+case-root
+*.dump
+*.o
+*.S
