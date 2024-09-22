@@ -8,7 +8,6 @@
 #include "print.h"
 #include "privil.h"
 #include "bip32_bip39.h"
-#include "aes_coin/aes_coin.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -23,7 +22,6 @@ void __printHexData__(char * loghea,unsigned char  *pData, int nLen) {
 	HexToStr((char *)msg, pData, nLen);
 	eapp_print("%s = %s ,len = %d \n",loghea,msg,nLen * 2);
 	free(msg);
-	eapp_print("\n");
 }
 
 int execute(unsigned long * args)
@@ -33,14 +31,8 @@ int execute(unsigned long * args)
     int COIN_TYPE = 0;
 
 	const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
-
-	// printf("Mnemonic string : %s \n",mnemonic);
 	uint8_t bip39_seed[keylength];
-
 	generateBip39Seeed(mnemonic,bip39_seed,passphrase);
-	// printHexData("seed = ", (unsigned char *)bip39_seed, keylength);
-
-
 
 	char rootkey[112];
 	uint32_t fingerprint = 0;
@@ -50,9 +42,7 @@ int execute(unsigned long * args)
 		eapp_print("hdnode_from_seed failed (%d).", r);
 		return -1;
 	}
-
 	hdnode_fill_public_key(&node);
-
 
 	r = hdnode_serialize_private(&node, fingerprint, PRIVKEY_PREFIX, rootkey, sizeof(rootkey));
 	if ( r <= 0 ){
@@ -71,7 +61,7 @@ int execute(unsigned long * args)
 
 	// m/44'/coin/0'/0/0   m/49/coin/0/0/0
 	hdnode_private_ckd_prime(&node, 44);
-    hdnode_private_ckd_prime(&node, COIN_TYPE);
+  hdnode_private_ckd_prime(&node, COIN_TYPE);
 	hdnode_private_ckd_prime(&node, 0);
 	hdnode_private_ckd(&node, 0);
 	fingerprint = hdnode_fingerprint(&node);
@@ -83,7 +73,6 @@ int execute(unsigned long * args)
 		eapp_print("hdnode_serialize_private failed (%d).", r);
 	   return -1;
 	}
-
 	__printHexData__("child hex private key = ", (unsigned char *)node.private_key, 32);
 
 	hdnode_serialize_public(&node, fingerprint, PUBKEY_PREFIX, rootkey, sizeof(rootkey));
@@ -91,11 +80,9 @@ int execute(unsigned long * args)
 		eapp_print("hdnode_serialize_public failed (%d).", r);
 	   return -1;
 	 }
-
-
 	__printHexData__("child hex public key = ", (unsigned char *)node.public_key, 33);
-  EAPP_RETURN(0);
 
+  EAPP_RETURN(0);
 }
 
 int EAPP_ENTRY main(){

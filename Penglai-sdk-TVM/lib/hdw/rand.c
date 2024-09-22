@@ -49,7 +49,7 @@ uint32_t random32(void)
 {
 	static int initialized = 0;
 	if (!initialized) {
-		hdw_srand(36413);
+		hdw_srand(19260817);
 		initialized = 1;
 	}
 	hdw_seed = 6364136223846793005ULL*hdw_seed + 1;
