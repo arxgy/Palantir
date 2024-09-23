@@ -138,9 +138,18 @@ int execute(unsigned long * args)
 
   const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
   uint8_t bip39_seed[keylength];
-  generateBip39Seeed(mnemonic,bip39_seed,passphrase);
-  hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
-  hdnode_fill_public_key(&rootnode);
+
+  unsigned long t_stamp = 0, t_seed = 0;
+  for (int idx = 0 ; idx < 1024 ; idx++)
+  {
+    t_stamp = get_cycle();
+    generateBip39Seeed(mnemonic,bip39_seed,passphrase);
+    hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
+    hdnode_fill_public_key(&rootnode);
+    t_seed += get_cycle() - t_stamp;
+  }
+  eapp_print("hdnode_from_seed (PE) time: %lx cycle\n", t_seed);
+
 
   int init_run[CE_NUMBER];
   memset(init_run, 0, CE_NUMBER*sizeof(int));

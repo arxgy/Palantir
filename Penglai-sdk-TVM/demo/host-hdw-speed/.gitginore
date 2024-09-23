@@ -1,0 +1,4 @@
+host-hdw-speed
+*.dump
+*.o
+*.S

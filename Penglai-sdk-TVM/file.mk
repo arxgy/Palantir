@@ -3,6 +3,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/host/host \
 	$(srcdir)/Penglai-sdk-TVM/demo/host-measure/host-measure \
 	$(srcdir)/Penglai-sdk-TVM/demo/host-hdw/host-hdw \
+	$(srcdir)/Penglai-sdk-TVM/demo/host-hdw-speed/host-hdw-speed \
 	$(srcdir)/Penglai-sdk-TVM/demo/fork-host/fork-host \
 	$(srcdir)/Penglai-sdk-TVM/demo/hello-world/hello-world \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-1-introspection/case-inspector/case-inspector \
@@ -19,6 +20,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-root/case-root \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-wallet-child1/case-wallet-child1 \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-raw-wallet/case-raw-wallet \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-raw-speed/case-raw-speed \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/aes/aes \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/dhrystone/dhrystone \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/norx/norx \
