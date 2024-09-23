@@ -2,6 +2,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/enclave-driver/penglai.ko \
 	$(srcdir)/Penglai-sdk-TVM/demo/host/host \
 	$(srcdir)/Penglai-sdk-TVM/demo/host-measure/host-measure \
+	$(srcdir)/Penglai-sdk-TVM/demo/host-hdw/host-hdw \
 	$(srcdir)/Penglai-sdk-TVM/demo/fork-host/fork-host \
 	$(srcdir)/Penglai-sdk-TVM/demo/hello-world/hello-world \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-1-introspection/case-inspector/case-inspector \

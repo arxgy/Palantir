@@ -63,42 +63,14 @@ void print_HDNode(HDNode *node){
   __printHexData__("[print_HDNode] public_key",node->public_key,33);
 }
 
+unsigned long get_cycle(void){
+	unsigned long n;
+	 __asm__ __volatile__("rdcycle %0" : "=r"(n));
+	 return n;
+}
+
 int execute(unsigned long * args)
 { 
-  /* Root Key Generation */
-  const char *passphrase ="";
-  int keylength = 64;
-  int COIN_TYPE = 0;
-
-  const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
-  uint8_t bip39_seed[keylength];
-  generateBip39Seeed(mnemonic,bip39_seed,passphrase);
-
-  char rootkey[112];
-  uint32_t fingerprint = 0;
-  HDNode rootnode;
-  int r = hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
-  if( r != 1 ){
-    eapp_print("hdnode_from_seed failed (%d).", r);
-    return -1;
-  }
-  hdnode_fill_public_key(&rootnode);
-
-  r = hdnode_serialize_private(&rootnode, fingerprint, PRIVKEY_PREFIX, rootkey, sizeof(rootkey));
-  if ( r <= 0 ){
-    eapp_print("hdnode_serialize_private failed (%d).", r);
-    return -1;
-  }
-
-  eapp_print("root private key:%s\n",rootkey);
-
-  r = hdnode_serialize_public(&rootnode, fingerprint, PUBKEY_PREFIX, rootkey, sizeof(rootkey));
-  if (r <= 0) {
-    eapp_print("hdnode_serialize_public failed (%d).", r);
-    return -1;
-  }
-  eapp_print("root  public key:%s\n",rootkey);
-
   int retval = 0, prev = 0;
   int requested = 0, i = 0, thread_init = 0;
   /* CREATE CEs begin */
@@ -154,6 +126,22 @@ int execute(unsigned long * args)
     response_params[i].share_page_response = (unsigned long)(&(share_responses[i]));
   }
 
+  unsigned long begin_cycle, end_cycle;
+  begin_cycle = get_cycle();
+  /* Root Key Generation */
+  const char *passphrase ="";
+  int keylength = 64;
+  int COIN_TYPE = 0;
+  char rootkey[112];
+  uint32_t fingerprint = 0;
+  HDNode rootnode;
+
+  const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
+  uint8_t bip39_seed[keylength];
+  generateBip39Seeed(mnemonic,bip39_seed,passphrase);
+  hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
+  hdnode_fill_public_key(&rootnode);
+
   int init_run[CE_NUMBER];
   memset(init_run, 0, CE_NUMBER*sizeof(int));
 
@@ -194,6 +182,7 @@ int execute(unsigned long * args)
         break;
       case NE_REQUEST_ACQUIRE_PAGE:
         requested = 1;
+
         /* Generate HD Account for CEs */
         HDNode childnode;
         memcpy(&childnode, &rootnode, sizeof(HDNode));
@@ -204,7 +193,6 @@ int execute(unsigned long * args)
         share_responses[prev].src_ptr = (unsigned long)(wallet_content);
         share_responses[prev].dest_ptr = share_params[prev].share_content_ptr;
         share_responses[prev].share_size = share_params[prev].share_size;
-
         break;
       default:
         break;
@@ -223,6 +211,8 @@ int execute(unsigned long * args)
       continue;
     retval = eapp_resume_enclave((unsigned long)(&(run_params[i])));
   }
+  end_cycle = get_cycle();
+  eapp_print("pe: total_cycle [%lx]\n", end_cycle-begin_cycle);
   EAPP_RETURN(0);
 }
 

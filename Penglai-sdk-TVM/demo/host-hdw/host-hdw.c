@@ -1,28 +1,12 @@
-/**
- * This program is a Privileged Enclave demo in Reusable Enclave case study,
- * which is supported to do nested attestation on a nested PE (reset module) and a NE (serverless payload w/o WASM runtime).
- * 
- *  by Anonymous Author @ Apr 4, 2024.
-*/
-#include "eapp.h"
-#include "print.h"
-#include "privil.h"
+#include "penglai-enclave.h"
 #include "bip32_bip39.h"
+#include <stdlib.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#define ENTRY_POINT 0x1000
-
-void __printHexData__(char * loghea,unsigned char  *pData, int nLen) {
-	unsigned char *msg =  malloc(nLen * 2 + 1);
-	memset(msg, 0, nLen * 2 + 1);
-	HexToStr((char *)msg, pData, nLen);
-	eapp_print("%s = %s ,len = %d \n",loghea,msg,nLen * 2);
-	free(msg);
-}
 
 unsigned long get_cycle(void){
 	unsigned long n;
@@ -30,13 +14,16 @@ unsigned long get_cycle(void){
 	 return n;
 }
 
+
 int execute(unsigned long * args)
 {
+
 	unsigned long begin_cycle, end_cycle;
 	begin_cycle = get_cycle();
+
 	const char *passphrase ="";
 	int keylength = 64;
-		int COIN_TYPE = 0;
+	int COIN_TYPE = 0;
 
 	const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
 	uint8_t bip39_seed[keylength];
@@ -47,25 +34,24 @@ int execute(unsigned long * args)
 	HDNode node;
 	int r = hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &node);
 	if( r != 1 ){
-		eapp_print("hdnode_from_seed failed (%d).", r);
+		printf("hdnode_from_seed failed (%d).", r);
 		return -1;
 	}
-	hdnode_fill_public_key(&node);
-
+	
 	for (int x = 0 ; x < REPEAT_TIME ; x++)
 	{
+		hdnode_fill_public_key(&node);
 		hdnode_private_ckd(&node, 0);
 		fingerprint = hdnode_fingerprint(&node);
 	}
 
-	end_cycle = get_cycle();
-	eapp_print("raw: total_cycle: [%lx]\n", end_cycle - begin_cycle);
 
-  EAPP_RETURN(0);
+	end_cycle = get_cycle();
+	printf("host: total_cycle: [%lx]\n", end_cycle - begin_cycle);
+	return 0;
 }
 
-int EAPP_ENTRY main(){
+int main(){
   unsigned long * args;
-  EAPP_RESERVE_REG;
   execute(args);
 }

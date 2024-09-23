@@ -32,11 +32,20 @@ void print_HDNode(HDNode *node){
   __printHexData__("[print_HDNode] public_key",node->public_key,33);
 }
 
+unsigned long get_cycle(void){
+	unsigned long n;
+	 __asm__ __volatile__("rdcycle %0" : "=r"(n));
+	 return n;
+}
+
 int execute(unsigned long * args)
 {
+  unsigned long begin_cycle, end_cycle;
+
   char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
   memset((void *)content, 0, PAGE_SIZE);
-  
+  uint32_t fingerpoint = 0;
+
   ocall_request_share_t share_req;
   share_req.eid = MAGIC_PEER_EID;
   share_req.share_id = MAGIC_PAGE_ID;
@@ -48,13 +57,18 @@ int execute(unsigned long * args)
   req.inspect_request = NULL;
   req.share_page_request = (unsigned long)(&share_req);
   
-  eapp_pause_enclave((unsigned long)(&req));
-	HDNode node;
-	memcpy(&node, content, sizeof(HDNode));
-	node.curve = &secp256k1_info; /* setup curve to secp256k1 */
-
-	print_HDNode(&node);
+	begin_cycle = get_cycle();
+  for (int x = 0 ; x < REPEAT_TIME ; x++)
+  {
+    eapp_pause_enclave((unsigned long)(&req));
+    HDNode node;
+    memcpy(&node, content, sizeof(HDNode));
+    node.curve = &secp256k1_info; /* setup curve to secp256k1 */
+    fingerpoint = hdnode_fingerprint(&node);
+  }
 	// eapp_print("%s\n", node.curve->bip32_name);
+	end_cycle = get_cycle();
+	eapp_print("ce: total_cycle: [%lx]\n", end_cycle - begin_cycle);
 
   EAPP_RETURN(127);
 }

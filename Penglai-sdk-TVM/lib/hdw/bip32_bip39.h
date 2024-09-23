@@ -16,6 +16,7 @@
 #define PRIVKEY_PREFIX 0x0488ade4 // xprv
 
 #define FROMHEX_MAXLEN 512
+#define REPEAT_TIME 1024 /* to eliminate launching time noises */
 
 const uint8_t *fromhex(const char *str);
 const char *generateMnemonic(int strength);

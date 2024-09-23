@@ -87,7 +87,7 @@ void* create_enclave(void* args0)
   }
   PLenclave_destruct(enclave);
   total_cycle += get_cycle()-begin_cycle;
-  printf("host: total_cycle: [%lu]\n", total_cycle);
+  printf("host: total_cycle: [%lx]\n", total_cycle);
 
 free_enclave:  
   PLenclave_shmdt(shmid, shm);

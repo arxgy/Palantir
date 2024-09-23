@@ -3,6 +3,7 @@ all:
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C fork-host
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C eval-2-interface
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C host-measure
+	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C host-hdw
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C rv8-baseline
 	make -C hello-world
 	make -C relay-page
@@ -25,6 +26,7 @@ all:
 clean:
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C host clean
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C host-measure clean
+	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C host-hdw clean
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C eval-2-interface clean
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C fork-host clean
 	CC=$(CC) LINK=$(LINK) AR=$(AR) make -C rv8-baseline clean
