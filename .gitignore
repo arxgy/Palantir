@@ -15,4 +15,3 @@ copy-files/*
 .history
 .vscode/
 *.json
-**/host-hdw-speed
