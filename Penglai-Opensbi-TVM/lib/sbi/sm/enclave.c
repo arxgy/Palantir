@@ -5000,9 +5000,9 @@ out:
  * \param regs The host register context.
  * \param enclave_pause_args   The pause parameter (VA)
  * 
- * \details This primitive should only be called by NE that governed by PE for now.
+ * \details This primitive should only be called by CEs that governed by PE for now.
  * It's also explainable for pausing other legacy enclave designs, but we leave it as our future work.
- * by Anonymous Author @ May 17, 2023.
+ * by Anonymous Author @ Sep 24, 2024.
 */
 uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
 {
@@ -5013,7 +5013,7 @@ uintptr_t privil_pause_enclave(uintptr_t* regs, uintptr_t enclave_pause_args)
 
   eid = get_curr_enclave_id();
   enclave = __get_enclave(eid);
-  if(!enclave || check_enclave_authentication(enclave) != 0 || enclave->type != NORMAL_ENCLAVE)
+  if(!enclave || check_enclave_authentication(enclave) != 0)
   {
     sbi_bug("M mode: privil_pause_enclave: enclave%d can not be accessed!\n", eid);
     ret = -1UL;
