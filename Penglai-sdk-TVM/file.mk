@@ -19,6 +19,7 @@ SDK_FILES = \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-4-reusable/case-payload/case-payload \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-root/case-root \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-wallet-child1/case-wallet-child1 \
+	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-wallet-mid/case-wallet-mid \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-raw-wallet/case-raw-wallet \
 	$(srcdir)/Penglai-sdk-TVM/demo/case-5-hdw/case-raw-speed/case-raw-speed \
 	$(srcdir)/Penglai-sdk-TVM/demo/eval-1-benchmark/rv8/aes/aes \

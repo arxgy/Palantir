@@ -1,0 +1,4 @@
+case-wallet-mid
+*.dump
+*.o
+*.S

@@ -5,14 +5,25 @@
  *  by Anonymous Author @ Sep 22, 2024.
 */
 #include "eapp.h"
-#include "print.h"
 #include "privil.h"
+#include "print.h"
 #include "bip32_bip39.h"
+#include "secp256k1.h" /* Fetch curve parameter locally */
+#include "curves.h"
+#include "ecdsa.h"
+#include "secp256k1.h"
+#include "nist256p1.h"
+#include "ed25519-donna/ed25519.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <assert.h>
+#include <string.h>
+#include <stdint.h>
+
+#define MAGIC_PEER_EID 4097
+#define MAGIC_PAGE_ID  1
 
 #define ENTRY_POINT 0x1000
 
@@ -69,12 +80,14 @@ unsigned long get_cycle(void){
 	 return n;
 }
 
+
+
 int execute(unsigned long * args)
 { 
   int retval = 0, prev = 0;
   int requested = 0, i = 0, thread_init = 0;
   /* CREATE CEs begin */
-  char *elf_file_names[CE_NUMBER] = {"/root/case-wallet-mid"};
+  char *elf_file_names[CE_NUMBER] = {"/root/case-wallet-child1"};
   int share_id_counts[CE_NUMBER];
   memset(share_id_counts, 0, sizeof(int)*CE_NUMBER);
   // share_record_t share_records[SHARE_LIMIT];
@@ -85,7 +98,7 @@ int execute(unsigned long * args)
   for (i = 0 ; i < CE_NUMBER ; i++)
   { 
     create_params[i].elf_file_ptr = (unsigned long)(&(create_params[i]));
-    create_params[i].encl_type = PRIVIL_ENCLAVE;
+    create_params[i].encl_type = NORMAL_ENCLAVE;
     create_params[i].stack_size = DEFAULT_STACK_SIZE;
     create_params[i].migrate_arg = 0;
     /* disable shm currently */
@@ -134,7 +147,7 @@ int execute(unsigned long * args)
   int COIN_TYPE = 0;
   char rootkey[112];
   uint32_t fingerprint = 0;
-  HDNode rootnode;
+  HDNode midnode;
 
   const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
   uint8_t bip39_seed[keylength];
@@ -142,13 +155,14 @@ int execute(unsigned long * args)
   unsigned long t_stamp = 0, t_seed = 0;
   // for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   // {
-    t_stamp = get_cycle();
-    generateBip39Seeed(mnemonic,bip39_seed,passphrase);
-    hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
-    hdnode_fill_public_key(&rootnode);
-    t_seed += get_cycle() - t_stamp;
+	/* todo: change this into ecall-to-root-PE */
+	// t_stamp = get_cycle();
+	// generateBip39Seeed(mnemonic,bip39_seed,passphrase);
+	// hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &midnode);
+	// hdnode_fill_public_key(&midnode);
+	// t_seed += get_cycle() - t_stamp;
   // }
-  eapp_print("hdnode_from_seed (PE) time: %lx cycle\n", t_seed);
+  // eapp_print("hdnode_from_seed (PE) time: %lx cycle\n", t_seed);
 
 
   int init_run[CE_NUMBER];
@@ -192,9 +206,29 @@ int execute(unsigned long * args)
       case NE_REQUEST_ACQUIRE_PAGE:
         requested = 1;
 
+				char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
+				memset((void *)content, 0, PAGE_SIZE);
+				uint32_t fingerpoint = 0;
+
+				ocall_request_share_t share_req;
+				share_req.eid = MAGIC_PEER_EID;
+				share_req.share_id = MAGIC_PAGE_ID;
+				share_req.share_content_ptr = (unsigned long)(content);
+				share_req.share_size = PAGE_SIZE;
+
+				ocall_request_t req;
+				req.request = NE_REQUEST_ACQUIRE_PAGE;
+				req.inspect_request = NULL;
+				req.share_page_request = (unsigned long)(&share_req);
+
+				eapp_pause_enclave((unsigned long)(&req));
+				memcpy(&midnode, content, sizeof(HDNode));
+				midnode.curve = &secp256k1_info; /* setup curve to secp256k1 */
+				fingerpoint = hdnode_fingerprint(&midnode);
+
         /* Generate HD Account for CEs */
         HDNode childnode;
-        memcpy(&childnode, &rootnode, sizeof(HDNode));
+        memcpy(&childnode, &midnode, sizeof(HDNode));
         hdnode_private_ckd(&childnode, prev);
         memcpy(wallet_content, &childnode, sizeof(HDNode));
         

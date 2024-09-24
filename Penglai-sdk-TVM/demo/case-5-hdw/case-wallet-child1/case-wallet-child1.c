@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#define MAGIC_PEER_EID 4097
+#define MAGIC_PEER_EID 4098
 #define MAGIC_PAGE_ID  1
 
 void __printHexData__(char * loghea,unsigned char  *pData, int nLen) {
@@ -179,6 +179,6 @@ int EAPP_ENTRY main(){
   unsigned long * args;
   EAPP_RESERVE_REG;
   execute(args);
-  test_verify_speed();
+  // test_verify_speed();
   EAPP_RETURN(0);
 }
