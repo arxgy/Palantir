@@ -121,21 +121,21 @@ void test_random_seed_speed()
   uint8_t bip39_seed[keylength];
 
   unsigned long t_stamp = 0, t_seed = 0;
-  for (int idx = 0 ; idx < 1024 ; idx++)
+	t_stamp = get_cycle();
+  for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   {
-    t_stamp = get_cycle();
     generateBip39Seeed(mnemonic,bip39_seed,passphrase);
     hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
     hdnode_fill_public_key(&rootnode);
-    t_seed += get_cycle() - t_stamp;
   }
+	t_seed += get_cycle() - t_stamp;
   eapp_print("hdnode_from_seed (raw) time: %lx cycle\n", t_seed);
 }
 
 int execute(unsigned long * args)
 {
+  eapp_print("setup raw enclave end: %lx\n", get_cycle());
 	unsigned long begin_cycle, end_cycle;
-	begin_cycle = get_cycle();
 	const char *passphrase ="";
 	int keylength = 64;
 		int COIN_TYPE = 0;
@@ -146,14 +146,14 @@ int execute(unsigned long * args)
   HDNode rootnode;
 
   unsigned long t_stamp = 0, t_seed = 0;
-  for (int idx = 0 ; idx < 1024 ; idx++)
+	t_stamp = get_cycle();
+  for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   {
-    t_stamp = get_cycle();
     generateBip39Seeed(mnemonic,bip39_seed,passphrase);
     hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
     hdnode_fill_public_key(&rootnode);
-    t_seed += get_cycle() - t_stamp;
   }
+	t_seed += get_cycle() - t_stamp;
   eapp_print("hdnode_from_seed (Native Enclave) time: %lx cycle\n", t_seed);
 
 	generateBip39Seeed(mnemonic,bip39_seed,passphrase);
@@ -168,10 +168,18 @@ int execute(unsigned long * args)
 	}
 	hdnode_fill_public_key(&node);
 
+	hdnode_private_ckd(&node, 0);//
+	fingerprint = hdnode_fingerprint(&node);
+
+
+	begin_cycle = get_cycle();
+
 	for (int x = 0 ; x < REPEAT_TIME ; x++)
 	{
-		hdnode_private_ckd(&node, 0);
+		hdnode_private_ckd(&node, 0);//
+		node.curve = &secp256k1_info; /* setup curve to secp256k1 */
 		fingerprint = hdnode_fingerprint(&node);
+
 	}
 
 	end_cycle = get_cycle();
@@ -182,14 +190,71 @@ int execute(unsigned long * args)
 
 }
 
+int execute_single(unsigned long * args)
+{
+	unsigned long begin_cycle, end_cycle;
+	begin_cycle = get_cycle();
+	const char *passphrase ="";
+	int keylength = 64;
+		int COIN_TYPE = 0;
+
+	const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
+	uint8_t bip39_seed[keylength];
+
+  HDNode rootnode;
+
+
+	for (int x = 0 ; x < REPEAT_TIME ; x++)
+	{
+  // unsigned long t_stamp = 0, t_seed = 0;
+  // for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
+  // {
+    // t_stamp = get_cycle();
+    generateBip39Seeed(mnemonic,bip39_seed,passphrase);
+    hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
+    hdnode_fill_public_key(&rootnode);
+    // t_seed += get_cycle() - t_stamp;
+  // }
+  // eapp_print("hdnode_from_seed (Native Enclave) time: %lx cycle\n", t_seed);
+
+		generateBip39Seeed(mnemonic,bip39_seed,passphrase);
+
+		char rootkey[112];
+		uint32_t fingerprint = 0;
+		HDNode node;
+		int r = hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &node);
+		if( r != 1 ){
+			eapp_print("hdnode_from_seed failed (%d).", r);
+			return -1;
+		}
+		hdnode_fill_public_key(&node);
+
+
+		hdnode_private_ckd(&node, 0);//
+		fingerprint = hdnode_fingerprint(&node);
+		hdnode_private_ckd(&node, 0);//
+		node.curve = &secp256k1_info; /* setup curve to secp256k1 */
+		fingerprint = hdnode_fingerprint(&node);
+
+	}
+
+	end_cycle = get_cycle();
+
+
+
+	eapp_print("single-to-single: total_cycle: [%lx]\n", end_cycle - begin_cycle);
+
+}
+
 int EAPP_ENTRY main(){
   unsigned long * args;
   EAPP_RESERVE_REG;
   execute(args);
-	test_random_seed_speed();
-	bench_secp256k1();
-	bench_nist256p1();
-	bench_ed25519();
+	execute_single(args);
+	// test_random_seed_speed();
+	// bench_secp256k1();
+	// bench_nist256p1();
+	// bench_ed25519();
 
   EAPP_RETURN(0);
 }

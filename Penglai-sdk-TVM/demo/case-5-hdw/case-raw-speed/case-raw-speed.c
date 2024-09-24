@@ -162,7 +162,7 @@ void test_random_seed_speed()
   uint8_t bip39_seed[keylength];
 
   unsigned long t_stamp = 0, t_seed = 0;
-  for (int idx = 0 ; idx < 1024 ; idx++)
+  for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   {
     t_stamp = get_cycle();
     generateBip39Seeed(mnemonic,bip39_seed,passphrase);

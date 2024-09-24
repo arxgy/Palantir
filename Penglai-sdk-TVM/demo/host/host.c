@@ -18,6 +18,7 @@ unsigned long get_cycle(void){
 
 void* create_enclave(void* args0)
 {
+  printf("setup root enclave begin: %lx\n", get_cycle());
   struct args *args = (struct args*)args0;
   void* in = args->in;
   int i = args->i;

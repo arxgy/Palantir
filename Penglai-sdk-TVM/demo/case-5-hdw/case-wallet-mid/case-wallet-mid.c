@@ -84,6 +84,7 @@ unsigned long get_cycle(void){
 
 int execute(unsigned long * args)
 { 
+  eapp_print("setup mid enclave end (& setup child begin): %lx\n", get_cycle());
   int retval = 0, prev = 0;
   int requested = 0, i = 0, thread_init = 0;
   /* CREATE CEs begin */
@@ -152,7 +153,30 @@ int execute(unsigned long * args)
   const char *mnemonic = "vault salon bonus asset raw rapid split balance logic employ fuel atom";
   uint8_t bip39_seed[keylength];
 
-  unsigned long t_stamp = 0, t_seed = 0;
+	char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
+	memset((void *)content, 0, PAGE_SIZE);
+	uint32_t fingerpoint = 0;
+  unsigned long t_stamp = 0, t_mid_derviation = 0;
+
+	t_stamp = get_cycle();
+	ocall_request_share_t share_req;
+	share_req.eid = MAGIC_PEER_EID;
+	share_req.share_id = MAGIC_PAGE_ID;
+	share_req.share_content_ptr = (unsigned long)(content);
+	share_req.share_size = PAGE_SIZE;
+
+	ocall_request_t req;
+	req.request = NE_REQUEST_ACQUIRE_PAGE;
+	req.inspect_request = NULL;
+	req.share_page_request = (unsigned long)(&share_req);
+
+	eapp_pause_enclave((unsigned long)(&req));
+	memcpy(&midnode, content, sizeof(HDNode));
+	midnode.curve = &secp256k1_info; /* setup curve to secp256k1 */
+	fingerpoint = hdnode_fingerprint(&midnode);
+
+	eapp_print("E2E Mid Key Derivation: %lx cycle\n", get_cycle() - t_stamp);
+	// t_mid_derviation += get_cycle() - t_stamp;
   // for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   // {
 	/* todo: change this into ecall-to-root-PE */
@@ -205,26 +229,7 @@ int execute(unsigned long * args)
         break;
       case NE_REQUEST_ACQUIRE_PAGE:
         requested = 1;
-
-				char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
-				memset((void *)content, 0, PAGE_SIZE);
-				uint32_t fingerpoint = 0;
-
-				ocall_request_share_t share_req;
-				share_req.eid = MAGIC_PEER_EID;
-				share_req.share_id = MAGIC_PAGE_ID;
-				share_req.share_content_ptr = (unsigned long)(content);
-				share_req.share_size = PAGE_SIZE;
-
-				ocall_request_t req;
-				req.request = NE_REQUEST_ACQUIRE_PAGE;
-				req.inspect_request = NULL;
-				req.share_page_request = (unsigned long)(&share_req);
-
-				eapp_pause_enclave((unsigned long)(&req));
-				memcpy(&midnode, content, sizeof(HDNode));
-				midnode.curve = &secp256k1_info; /* setup curve to secp256k1 */
-				fingerpoint = hdnode_fingerprint(&midnode);
+				t_stamp = get_cycle();
 
         /* Generate HD Account for CEs */
         HDNode childnode;
@@ -236,6 +241,7 @@ int execute(unsigned long * args)
         share_responses[prev].src_ptr = (unsigned long)(wallet_content);
         share_responses[prev].dest_ptr = share_params[prev].share_content_ptr;
         share_responses[prev].share_size = share_params[prev].share_size;
+				t_mid_derviation += get_cycle() - t_stamp;
         break;
       default:
         break;
@@ -256,6 +262,7 @@ int execute(unsigned long * args)
   }
   end_cycle = get_cycle();
   eapp_print("pe: total_cycle [%lx]\n", end_cycle-begin_cycle);
+  eapp_print("Mid Key Derivation [%lx]\n", t_mid_derviation);
   EAPP_RETURN(0);
 }
 

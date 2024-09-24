@@ -49,6 +49,7 @@ unsigned long get_cycle(void){
 
 int execute(unsigned long * args)
 {
+  eapp_print("setup child enclave end: %lx\n", get_cycle());
   unsigned long begin_cycle, end_cycle;
 
   char *content = (char *)eapp_mmap(NULL, PAGE_SIZE);
@@ -77,7 +78,7 @@ int execute(unsigned long * args)
   }
 	// eapp_print("%s\n", node.curve->bip32_name);
 	end_cycle = get_cycle();
-	eapp_print("ce: total_cycle: [%lx]\n", end_cycle - begin_cycle);
+	eapp_print("E2E Child Key Derivation ($REPEAT_TIME): %lx cycle\n", end_cycle - begin_cycle);
 
 
   // EAPP_RETURN(127);

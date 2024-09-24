@@ -126,24 +126,39 @@ void test_random_seed_speed()
   uint8_t bip39_seed[keylength];
 
   unsigned long t_stamp = 0, t_seed = 0;
-  for (int idx = 0 ; idx < 1024 ; idx++)
+	t_stamp = get_cycle();
+  for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   {
-    t_stamp = get_cycle();
     generateBip39Seeed(mnemonic,bip39_seed,passphrase);
     hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
     hdnode_fill_public_key(&rootnode);
-    t_seed += get_cycle() - t_stamp;
   }
-  printf("hdnode_from_seed time: %lx cycle\n", t_seed);
+	t_seed += get_cycle() - t_stamp;
+  printf("Native Linux: Random seed time: %lx cycle\n", t_seed);
+
+		hdnode_private_ckd(&rootnode, 0);//
+		hdnode_fingerprint(&rootnode);
+
+		unsigned long t_derive = get_cycle();
+		for (int x = 0 ; x < REPEAT_TIME ; x++)
+		{
+			hdnode_private_ckd(&rootnode, 0);//
+			rootnode.curve = &secp256k1_info; /* setup curve to secp256k1 */
+			hdnode_fingerprint(&rootnode);
+		}
+  printf("Native Linux: Derivation time: %lx cycle\n", get_cycle() - t_derive);
+
 }
 
 int execute(unsigned long * args)
 {
 	test_random_seed_speed();
-	test_verify_speed();
+	// test_verify_speed();
 }
 
 int main(){
   unsigned long * args;
-  execute(args);
+  // execute(args);
+	test_random_seed_speed();
+
 }

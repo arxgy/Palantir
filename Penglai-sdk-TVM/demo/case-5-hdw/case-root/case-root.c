@@ -71,6 +71,7 @@ unsigned long get_cycle(void){
 
 int execute(unsigned long * args)
 { 
+  eapp_print("setup root enclave end (& setup mid begin): %lx\n", get_cycle());
   int retval = 0, prev = 0;
   int requested = 0, i = 0, thread_init = 0;
   /* CREATE CEs begin */
@@ -140,15 +141,15 @@ int execute(unsigned long * args)
   uint8_t bip39_seed[keylength];
 
   unsigned long t_stamp = 0, t_seed = 0;
-  // for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
-  // {
+  for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
+  {
     t_stamp = get_cycle();
     generateBip39Seeed(mnemonic,bip39_seed,passphrase);
     hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
     hdnode_fill_public_key(&rootnode);
     t_seed += get_cycle() - t_stamp;
-  // }
-  eapp_print("hdnode_from_seed (PE) time: %lx cycle\n", t_seed);
+  }
+  eapp_print("Master Key Generation time: %lx cycle\n", t_seed);
 
 
   int init_run[CE_NUMBER];
