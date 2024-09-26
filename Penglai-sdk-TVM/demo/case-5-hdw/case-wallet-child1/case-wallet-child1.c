@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#define MAGIC_PEER_EID 4098
+// #define MAGIC_PEER_EID 4098
 #define MAGIC_PAGE_ID  1
 
 void __printHexData__(char * loghea,unsigned char  *pData, int nLen) {
@@ -49,6 +49,10 @@ unsigned long get_cycle(void){
 
 int execute(unsigned long * args)
 {
+  unsigned long cur_id = get_enclave_id();
+  eapp_print("EID: %d\n", cur_id);
+	unsigned long magic_peer_id = 4096 + cur_id;
+
   eapp_print("setup child enclave end: %lx\n", get_cycle());
   unsigned long begin_cycle, end_cycle;
 
@@ -57,7 +61,7 @@ int execute(unsigned long * args)
   uint32_t fingerpoint = 0;
 
   ocall_request_share_t share_req;
-  share_req.eid = MAGIC_PEER_EID;
+  share_req.eid = magic_peer_id;
   share_req.share_id = MAGIC_PAGE_ID;
   share_req.share_content_ptr = (unsigned long)(content);
   share_req.share_size = PAGE_SIZE;

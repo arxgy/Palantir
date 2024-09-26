@@ -141,16 +141,18 @@ int execute(unsigned long * args)
   uint8_t bip39_seed[keylength];
 
   unsigned long t_stamp = 0, t_seed = 0;
-  for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
-  {
+  // for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
+  // {
     t_stamp = get_cycle();
     generateBip39Seeed(mnemonic,bip39_seed,passphrase);
     hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
     hdnode_fill_public_key(&rootnode);
     t_seed += get_cycle() - t_stamp;
-  }
+  // }
   eapp_print("Master Key Generation time: %lx cycle\n", t_seed);
 
+  unsigned long cur_id = get_enclave_id();
+  // eapp_print("Root EID: %d\n", cur_id);
 
   int init_run[CE_NUMBER];
   memset(init_run, 0, CE_NUMBER*sizeof(int));

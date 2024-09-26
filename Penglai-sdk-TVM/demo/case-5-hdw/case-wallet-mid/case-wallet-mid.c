@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#define MAGIC_PEER_EID 4097
+// #define MAGIC_PEER_EID 4097
 #define MAGIC_PAGE_ID  1
 
 #define ENTRY_POINT 0x1000
@@ -84,11 +84,23 @@ unsigned long get_cycle(void){
 
 int execute(unsigned long * args)
 { 
+  unsigned long cur_id = get_enclave_id();
+  eapp_print("mid EID: %d\n", cur_id);
+  eapp_print("CHAIN_LENGTH: %d\n", CHAIN_LENGTH);
+  
+  unsigned long magic_peer_id = 4096 + cur_id;
+
   eapp_print("setup mid enclave end (& setup child begin): %lx\n", get_cycle());
   int retval = 0, prev = 0;
   int requested = 0, i = 0, thread_init = 0;
   /* CREATE CEs begin */
-  char *elf_file_names[CE_NUMBER] = {"/root/case-wallet-child1"};
+  char *elf_file_names[CE_NUMBER];
+  if (cur_id == CHAIN_LENGTH - 1) {
+    elf_file_names[0] = "/root/case-wallet-child1";
+  } else {
+    // call recursively
+    elf_file_names[0] = "/root/case-wallet-mid";
+  }
   int share_id_counts[CE_NUMBER];
   memset(share_id_counts, 0, sizeof(int)*CE_NUMBER);
   // share_record_t share_records[SHARE_LIMIT];
@@ -99,7 +111,7 @@ int execute(unsigned long * args)
   for (i = 0 ; i < CE_NUMBER ; i++)
   { 
     create_params[i].elf_file_ptr = (unsigned long)(&(create_params[i]));
-    create_params[i].encl_type = NORMAL_ENCLAVE;
+    create_params[i].encl_type = PRIVIL_ENCLAVE;
     create_params[i].stack_size = DEFAULT_STACK_SIZE;
     create_params[i].migrate_arg = 0;
     /* disable shm currently */
@@ -160,7 +172,7 @@ int execute(unsigned long * args)
 
 	t_stamp = get_cycle();
 	ocall_request_share_t share_req;
-	share_req.eid = MAGIC_PEER_EID;
+	share_req.eid = magic_peer_id;
 	share_req.share_id = MAGIC_PAGE_ID;
 	share_req.share_content_ptr = (unsigned long)(content);
 	share_req.share_size = PAGE_SIZE;

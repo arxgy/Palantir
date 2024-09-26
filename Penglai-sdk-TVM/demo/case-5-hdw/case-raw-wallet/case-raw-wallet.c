@@ -132,7 +132,7 @@ void test_random_seed_speed()
   eapp_print("hdnode_from_seed (raw) time: %lx cycle\n", t_seed);
 }
 
-int execute(unsigned long * args)
+int execute(unsigned long chain_length)
 {
   eapp_print("setup raw enclave end: %lx\n", get_cycle());
 	unsigned long begin_cycle, end_cycle;
@@ -172,8 +172,14 @@ int execute(unsigned long * args)
 	fingerprint = hdnode_fingerprint(&node);
 
 
-	begin_cycle = get_cycle();
 
+	for (int y = 0 ; y < chain_length ; y++)
+	{
+		hdnode_private_ckd(&node, 0);//
+		fingerprint = hdnode_fingerprint(&node);
+		node.curve = &secp256k1_info; /* setup curve to secp256k1 */
+	}
+	begin_cycle = get_cycle();
 	for (int x = 0 ; x < REPEAT_TIME ; x++)
 	{
 		hdnode_private_ckd(&node, 0);//
@@ -181,19 +187,19 @@ int execute(unsigned long * args)
 		fingerprint = hdnode_fingerprint(&node);
 
 	}
-
 	end_cycle = get_cycle();
 
 
 
-	eapp_print("raw: total_cycle: [%lx]\n", end_cycle - begin_cycle);
+	eapp_print("raw: CKD cost: [%lx]\n", end_cycle - begin_cycle);
 
 }
 
-int execute_single(unsigned long * args)
+int execute_single(unsigned long chain_length)
 {
 	unsigned long begin_cycle, end_cycle;
 	begin_cycle = get_cycle();
+
 	const char *passphrase ="";
 	int keylength = 64;
 		int COIN_TYPE = 0;
@@ -202,18 +208,21 @@ int execute_single(unsigned long * args)
 	uint8_t bip39_seed[keylength];
 
   HDNode rootnode;
-
-
+	unsigned long t_stamp = 0, t_seed = 0;
 	for (int x = 0 ; x < REPEAT_TIME ; x++)
 	{
   // unsigned long t_stamp = 0, t_seed = 0;
   // for (int idx = 0 ; idx < REPEAT_TIME ; idx++)
   // {
     // t_stamp = get_cycle();
-    generateBip39Seeed(mnemonic,bip39_seed,passphrase);
-    hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
-    hdnode_fill_public_key(&rootnode);
-    // t_seed += get_cycle() - t_stamp;
+		t_stamp = get_cycle();
+		for (int y = 0 ; y < chain_length ; y++)
+		{
+			generateBip39Seeed(mnemonic,bip39_seed,passphrase);
+			hdnode_from_seed(bip39_seed,64, SECP256K1_NAME, &rootnode);
+			hdnode_fill_public_key(&rootnode);
+		}
+    t_seed += get_cycle() - t_stamp;
   // }
   // eapp_print("hdnode_from_seed (Native Enclave) time: %lx cycle\n", t_seed);
 
@@ -230,31 +239,35 @@ int execute_single(unsigned long * args)
 		hdnode_fill_public_key(&node);
 
 
-		hdnode_private_ckd(&node, 0);//
-		fingerprint = hdnode_fingerprint(&node);
-		hdnode_private_ckd(&node, 0);//
-		node.curve = &secp256k1_info; /* setup curve to secp256k1 */
-		fingerprint = hdnode_fingerprint(&node);
+			hdnode_private_ckd(&node, 0);//
+			fingerprint = hdnode_fingerprint(&node);
+			node.curve = &secp256k1_info; /* setup curve to secp256k1 */
+
+		// hdnode_private_ckd(&node, 0);//
+		// fingerprint = hdnode_fingerprint(&node);
 
 	}
 
 	end_cycle = get_cycle();
 
+  eapp_print("hdnode_from_seed (JBOK) time: %lx cycle\n", t_seed);
 
 
-	eapp_print("single-to-single: total_cycle: [%lx]\n", end_cycle - begin_cycle);
+	eapp_print("JBOK: totals: [%lx]\n", end_cycle - begin_cycle);
 
 }
 
 int EAPP_ENTRY main(){
   unsigned long * args;
   EAPP_RESERVE_REG;
-  execute(args);
-	execute_single(args);
-	// test_random_seed_speed();
-	// bench_secp256k1();
-	// bench_nist256p1();
-	// bench_ed25519();
+	for (int i = 1 ; i <= CHAIN_LENGTH; i *= 2)
+  {
+		eapp_print("=============: %d\n", i);
+		eapp_print("CHAIN_LENGTH: %d\n", i);
+		execute(i);
+		execute_single(i);
+		eapp_print("=============: %d\n", i);
+	}
 
   EAPP_RETURN(0);
 }
